@@ -1,0 +1,8 @@
+# i3-setup/roles/i3lock_color/meta/main.yml
+---
+galaxy_info:
+  role_name: i3lock_color
+  author: kamilrybacki
+  description: Build and install i3lock-color from source
+  min_ansible_version: "2.10"
+dependencies: []
