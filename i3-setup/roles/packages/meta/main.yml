@@ -1,0 +1,8 @@
+# i3-setup/roles/packages/meta/main.yml
+---
+galaxy_info:
+  role_name: packages
+  author: kamilrybacki
+  description: Install apt packages for i3 desktop environment
+  min_ansible_version: "2.10"
+dependencies: []

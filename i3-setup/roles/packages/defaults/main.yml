@@ -1,0 +1,33 @@
+# i3-setup/roles/packages/defaults/main.yml
+---
+packages:
+  - i3
+  - polybar
+  - rofi
+  - dunst
+  - kitty
+  - zsh
+  - nitrogen
+  - xss-lock
+  - feh
+  - pulseaudio-utils
+  - papirus-icon-theme
+  - python3-pil
+  # i3lock-color autotools build dependencies
+  - autoconf
+  - automake
+  - pkg-config
+  - libpam-dev
+  - libcairo-dev
+  - libfontconfig-dev
+  - libxcb-composite0-dev
+  - libev-dev
+  - libx11-xcb-dev
+  - libxkbcommon-dev
+  - libxkbcommon-x11-dev
+  - libxcb-xkb-dev
+  - libxcb-image0-dev
+  - libxcb-util0-dev
+  - libxcb-xrm-dev
+  - libxcb-randr0-dev
+  - libgif-dev
