@@ -1,0 +1,60 @@
+# i3-setup/roles/styling/tasks/main.yml
+---
+- name: Patch accent color (green) in .Xresources
+  ansible.builtin.replace:
+    path: "{{ dotfiles_dest }}/.Xresources"
+    regexp: '^(#define green\s+)#[0-9a-fA-F]{6}$'
+    replace: '\g<1>{{ styling_accent }}'
+
+- name: Patch background color (bg0) in .Xresources
+  ansible.builtin.replace:
+    path: "{{ dotfiles_dest }}/.Xresources"
+    regexp: '^(#define bg0\s+)#[0-9a-fA-F]{6}$'
+    replace: '\g<1>{{ styling_bg }}'
+
+- name: Patch foreground color (fg) in .Xresources
+  ansible.builtin.replace:
+    path: "{{ dotfiles_dest }}/.Xresources"
+    regexp: '^(#define fg\s+)#[0-9a-fA-F]{6}$'
+    replace: '\g<1>{{ styling_fg }}'
+
+- name: Patch i3 inner gap
+  ansible.builtin.replace:
+    path: "{{ dotfiles_dest }}/.config/i3/config"
+    regexp: '^gaps inner \d+$'
+    replace: 'gaps inner {{ styling_gaps_inner }}'
+
+- name: Patch i3 outer gap
+  ansible.builtin.replace:
+    path: "{{ dotfiles_dest }}/.config/i3/config"
+    regexp: '^gaps outer \d+$'
+    replace: 'gaps outer {{ styling_gaps_outer }}'
+
+- name: Patch i3 border width
+  ansible.builtin.replace:
+    path: "{{ dotfiles_dest }}/.config/i3/config"
+    regexp: '^(default_border pixel )\d+$'
+    replace: '\g<1>{{ styling_border_width }}'
+
+- name: Patch i3 floating border width
+  ansible.builtin.replace:
+    path: "{{ dotfiles_dest }}/.config/i3/config"
+    regexp: '^(default_floating_border pixel )\d+$'
+    replace: '\g<1>{{ styling_border_width }}'
+
+- name: Patch kitty font size
+  ansible.builtin.replace:
+    path: "{{ dotfiles_dest }}/.config/kitty/kitty.conf"
+    regexp: '^(font_size\s+)\d+(\.\d+)?$'
+    replace: '\g<1>{{ styling_font_size }}'
+
+- name: Reload Xresources
+  ansible.builtin.command:
+    cmd: "xrdb {{ ansible_env.HOME }}/.Xresources"
+  changed_when: true
+
+- name: Reload i3 config
+  ansible.builtin.command:
+    cmd: i3-msg reload
+  changed_when: true
+  failed_when: false
