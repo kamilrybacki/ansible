@@ -1,0 +1,40 @@
+# i3-setup/roles/dotfiles/tasks/main.yml
+---
+- name: Clone dotfiles repository
+  ansible.builtin.git:
+    repo: "{{ dotfiles_repo }}"
+    dest: "{{ dotfiles_dest }}"
+    update: true
+    version: main
+
+- name: Ensure parent directories exist for symlinks
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/{{ item.src | dirname }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ dotfiles_links }}"
+  when: item.src | dirname != ''
+
+- name: Back up existing non-symlink files
+  ansible.builtin.command:
+    cmd: "mv {{ ansible_env.HOME }}/{{ item.src }} {{ ansible_env.HOME }}/{{ item.src }}.bak"
+  args:
+    creates: "{{ ansible_env.HOME }}/{{ item.src }}.bak"
+  loop: "{{ dotfiles_links }}"
+  when:
+    - (ansible_env.HOME ~ '/' ~ item.src) is exists
+    - not (ansible_env.HOME ~ '/' ~ item.src) is link
+
+- name: Create symlinks
+  ansible.builtin.file:
+    src: "{{ dotfiles_dest }}/{{ item.src }}"
+    dest: "{{ ansible_env.HOME }}/{{ item.src }}"
+    state: link
+    force: true
+  loop: "{{ dotfiles_links }}"
+
+- name: Ensure executables have correct permissions
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/{{ item }}"
+    mode: "0755"
+  loop: "{{ dotfiles_executables }}"

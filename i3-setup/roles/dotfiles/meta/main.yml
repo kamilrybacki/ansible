@@ -1,0 +1,8 @@
+# i3-setup/roles/dotfiles/meta/main.yml
+---
+galaxy_info:
+  role_name: dotfiles
+  author: kamilrybacki
+  description: Clone dotfiles repo and manage symlinks
+  min_ansible_version: "2.10"
+dependencies: []

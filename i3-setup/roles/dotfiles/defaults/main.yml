@@ -1,0 +1,22 @@
+# i3-setup/roles/dotfiles/defaults/main.yml
+---
+dotfiles_repo: "https://github.com/kamilrybacki/dotfiles.git"
+# dotfiles_dest is defined in group_vars/all.yml
+
+dotfiles_links:
+  - src: ".Xresources"
+  - src: ".zshrc"
+  - src: ".config/i3/config"
+  - src: ".config/polybar/config.ini"
+  - src: ".config/polybar/launch.sh"
+  - src: ".config/rofi/config.rasi"
+  - src: ".config/rofi/everforest.rasi"
+  - src: ".config/dunst/dunstrc"
+  - src: ".config/kitty/kitty.conf"
+  - src: ".config/kitty/everforest.conf"
+  - src: ".config/fastfetch/config.jsonc"
+  - src: ".local/bin/lock.sh"
+
+dotfiles_executables:
+  - ".config/polybar/launch.sh"
+  - ".local/bin/lock.sh"
