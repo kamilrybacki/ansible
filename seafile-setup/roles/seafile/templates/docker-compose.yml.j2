@@ -1,0 +1,50 @@
+services:
+  db:
+    container_name: {{ seafile_db_container_name }}
+    image: {{ seafile_db_image }}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "{{ seafile_db_root_password }}"
+      MYSQL_LOG_CONSOLE: "true"
+    volumes:
+      - seafile-db-data:/var/lib/mysql
+    networks:
+      - seafile-net
+
+  memcached:
+    container_name: {{ seafile_memcached_container_name }}
+    image: {{ seafile_memcached_image }}
+    restart: unless-stopped
+    entrypoint: memcached -m 256
+    networks:
+      - seafile-net
+
+  seafile:
+    container_name: {{ seafile_container_name }}
+    image: {{ seafile_image }}
+    restart: unless-stopped
+    ports:
+      - "{{ seafile_port }}:80"
+    volumes:
+      - {{ seafile_data_path }}:/shared
+    environment:
+      DB_HOST: db
+      DB_ROOT_PASSWD: "{{ seafile_db_root_password }}"
+      SEAFILE_ADMIN_EMAIL: "{{ seafile_admin_email }}"
+      SEAFILE_ADMIN_PASSWORD: "{{ seafile_admin_password }}"
+      SEAFILE_SERVER_HOSTNAME: "{{ caddy_domain }}"
+{% if caddy_domain | length > 0 %}
+      SEAFILE_SERVER_LETSENCRYPT: "false"
+{% endif %}
+    depends_on:
+      - db
+      - memcached
+    networks:
+      - seafile-net
+
+volumes:
+  seafile-db-data:
+
+networks:
+  seafile-net:
+    driver: bridge
