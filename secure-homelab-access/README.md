@@ -40,7 +40,7 @@ Internet → Public IP:51820/UDP → WireGuard VPN (wg-easy)
 
 ## Quick Start
 
-### 1. Configure
+### 1. Set Your Target Host
 
 Edit `inventory/hosts.ini` with your server details:
 
@@ -49,60 +49,57 @@ Edit `inventory/hosts.ini` with your server details:
 entry-node ansible_host=192.168.1.100 ansible_user=admin ansible_become=true
 ```
 
-Edit `group_vars/all.yml` — at minimum set:
+### 2. Deploy
 
-```yaml
-domain: "your-domain.com"
-public_ip: "YOUR_PUBLIC_IP"
-wireguard_password: "strong-password"        # Use ansible-vault!
-authelia_jwt_secret: "random-secret"         # Use ansible-vault!
-authelia_session_secret: "random-secret"     # Use ansible-vault!
-authelia_storage_encryption_key: "64+ chars" # Use ansible-vault!
-```
-
-### 2. Generate Authelia Password Hash
-
-```bash
-docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password 'your-password'
-```
-
-Put the output in `authelia_default_password_hash`.
-
-### 3. Deploy
+Just run it — the playbook prompts for everything interactively:
 
 ```bash
 ansible-playbook -i inventory/hosts.ini setup.yml
 ```
 
-Deploy specific components:
+You'll be walked through a setup wizard that asks for:
+
+| Step | Prompt | Example |
+|------|--------|---------|
+| 1/8 | Public IP address | `203.0.113.42` |
+| 2/8 | Domain name | `homelab.example.com` |
+| 3/8 | SSH port | `22` |
+| 4/8 | Let's Encrypt email | `you@example.com` |
+| 5/8 | WireGuard admin password | *(hidden, confirmed)* |
+| 6/8 | Authelia admin username | `admin` |
+| 7/8 | Authelia admin password | *(hidden, confirmed)* |
+| 8/8 | Authelia admin email | `you@example.com` |
+
+Secrets (JWT, session, encryption keys) are **auto-generated** at runtime.
+
+Deploy specific components only:
 
 ```bash
 ansible-playbook -i inventory/hosts.ini setup.yml --tags wireguard
 ansible-playbook -i inventory/hosts.ini setup.yml --tags caddy,authelia
 ```
 
-### 4. Connect
+### 3. Connect
 
 1. Open `https://YOUR_PUBLIC_IP:51821` to access wg-easy admin
 2. Create a VPN peer and download the WireGuard config
 3. Import into your WireGuard client (mobile/desktop)
 4. Once connected, access services via their domain names
 
-### 5. DNS Setup
+### 4. DNS Setup
 
 Point `*.yourdomain.com` to your VPN server address (`10.8.0.1`) using:
 - A local DNS server (Pi-hole, AdGuard Home)
 - Entries in your client's `/etc/hosts` or equivalent
 - A split-horizon DNS setup
 
-## Using Ansible Vault for Secrets
+## Overriding Defaults
+
+Internal settings (ports, subnets, container names) live in `group_vars/all.yml`.
+You can override any of them via extra-vars without editing files:
 
 ```bash
-# Encrypt the vars file
-ansible-vault encrypt group_vars/all.yml
-
-# Run with vault
-ansible-playbook -i inventory/hosts.ini setup.yml --ask-vault-pass
+ansible-playbook -i inventory/hosts.ini setup.yml -e wireguard_port=51900 -e vpn_subnet=10.10.0.0/24
 ```
 
 ## Adding More Services

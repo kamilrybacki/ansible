@@ -1,16 +1,15 @@
 ---
 # =============================================================================
-# Secure Homelab Remote Access - Configuration
+# Secure Homelab Remote Access - Defaults
+# =============================================================================
+# These are sensible defaults for internal settings. User-facing values
+# (IP, domain, passwords, email) are prompted interactively at runtime.
+# Override any of these via extra-vars or inventory vars if needed.
 # =============================================================================
 
-# -- Domain & Networking -----------------------------------------------------
-domain: "homelab.example.com"  # Your domain (or use nip.io for IP-based)
-public_ip: "YOUR_PUBLIC_IP"
+# -- VPN Networking (internal) ------------------------------------------------
 vpn_subnet: "10.8.0.0/24"
 vpn_address: "10.8.0.1"
-
-# -- SSH ----------------------------------------------------------------------
-ssh_port: 22
 
 # -- Docker --------------------------------------------------------------------
 docker_data_dir: "/opt/homelab"
@@ -19,8 +18,7 @@ docker_network_subnet: "172.20.0.0/24"
 
 # -- WireGuard (wg-easy) ------------------------------------------------------
 wireguard_port: 51820
-wireguard_web_port: 51821  # wg-easy admin UI (only accessible via VPN)
-wireguard_password: "CHANGE_ME_USE_VAULT"  # Use ansible-vault in production
+wireguard_web_port: 51821
 wireguard_dns: "1.1.1.1,1.0.0.1"
 wireguard_mtu: 1420
 wireguard_persistent_keepalive: 25
@@ -30,21 +28,14 @@ wireguard_data_dir: "{{ docker_data_dir }}/wireguard"
 # -- Caddy (Reverse Proxy) ----------------------------------------------------
 caddy_container_name: "caddy"
 caddy_data_dir: "{{ docker_data_dir }}/caddy"
-caddy_email: "admin@example.com"  # For Let's Encrypt notifications
 
 # -- Authelia (2FA) ------------------------------------------------------------
 authelia_container_name: "authelia"
 authelia_data_dir: "{{ docker_data_dir }}/authelia"
-authelia_jwt_secret: "CHANGE_ME_USE_VAULT"
-authelia_session_secret: "CHANGE_ME_USE_VAULT"
-authelia_storage_encryption_key: "CHANGE_ME_USE_VAULT_MUST_BE_64_CHARS_LONG_MINIMUM_FOR_SECURITY"
-authelia_default_user: "admin"
-authelia_default_password_hash: "$argon2id$v=19$m=65536,t=3,p=4$CHANGE_ME"  # Generate with: docker run authelia/authelia:latest authelia crypto hash generate argon2
-authelia_default_email: "admin@example.com"
 
 # -- Cockpit (System Management + Terminal) ------------------------------------
 cockpit_port: 9090
-cockpit_allow_unencrypted: true  # OK because behind Caddy HTTPS + VPN
+cockpit_allow_unencrypted: true  # Safe: behind Caddy HTTPS + WireGuard VPN
 
 # -- Homepage (Dashboard) -----------------------------------------------------
 homepage_container_name: "homepage"
@@ -54,9 +45,3 @@ homepage_data_dir: "{{ docker_data_dir }}/homepage"
 fail2ban_maxretry: 5
 fail2ban_bantime: 3600
 fail2ban_findtime: 600
-
-# -- Firewall (UFW) -----------------------------------------------------------
-firewall_allowed_tcp_ports:
-  - "{{ ssh_port }}"
-firewall_allowed_udp_ports:
-  - "{{ wireguard_port }}"
