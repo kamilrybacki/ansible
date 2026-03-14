@@ -1,0 +1,4 @@
+---
+monitoring_packages:
+  - smartmontools
+  - mailutils

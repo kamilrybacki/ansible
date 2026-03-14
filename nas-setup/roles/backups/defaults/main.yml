@@ -1,0 +1,3 @@
+---
+backup_rsync_opts: "-avh --delete --log-file={{ backup_log }}"
+backup_retention_days: 30

@@ -1,0 +1,73 @@
+---
+- name: Install SnapRAID
+  ansible.builtin.apt:
+    name: snapraid
+    state: present
+    update_cache: true
+  become: true
+
+- name: Deploy SnapRAID configuration
+  ansible.builtin.template:
+    src: snapraid.conf.j2
+    dest: /etc/snapraid.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Deploy SnapRAID sync script
+  ansible.builtin.template:
+    src: snapraid-sync.sh.j2
+    dest: /usr/local/bin/snapraid-sync
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Deploy SnapRAID scrub script
+  ansible.builtin.template:
+    src: snapraid-scrub.sh.j2
+    dest: /usr/local/bin/snapraid-scrub
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Create SnapRAID log file
+  ansible.builtin.file:
+    path: /var/log/snapraid.log
+    state: touch
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  changed_when: false
+
+- name: Schedule nightly SnapRAID sync
+  ansible.builtin.cron:
+    name: "snapraid-sync"
+    job: "/usr/local/bin/snapraid-sync"
+    minute: "{{ snapraid_sync_schedule.split(' ')[0] }}"
+    hour: "{{ snapraid_sync_schedule.split(' ')[1] }}"
+    day: "{{ snapraid_sync_schedule.split(' ')[2] }}"
+    month: "{{ snapraid_sync_schedule.split(' ')[3] }}"
+    weekday: "{{ snapraid_sync_schedule.split(' ')[4] }}"
+    user: root
+  become: true
+
+- name: Schedule weekly SnapRAID scrub
+  ansible.builtin.cron:
+    name: "snapraid-scrub"
+    job: "/usr/local/bin/snapraid-scrub"
+    minute: "{{ snapraid_scrub_schedule.split(' ')[0] }}"
+    hour: "{{ snapraid_scrub_schedule.split(' ')[1] }}"
+    day: "{{ snapraid_scrub_schedule.split(' ')[2] }}"
+    month: "{{ snapraid_scrub_schedule.split(' ')[3] }}"
+    weekday: "{{ snapraid_scrub_schedule.split(' ')[4] }}"
+    user: root
+  become: true
+
+- name: Run initial SnapRAID sync
+  ansible.builtin.command: snapraid sync
+  become: true
+  changed_when: true

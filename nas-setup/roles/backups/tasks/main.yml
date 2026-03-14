@@ -1,0 +1,45 @@
+---
+- name: Install rsync
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+    update_cache: true
+  become: true
+
+- name: Create backup destination directory
+  ansible.builtin.file:
+    path: "{{ backup_dest }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Deploy NAS backup script
+  ansible.builtin.template:
+    src: nas-backup.sh.j2
+    dest: /usr/local/bin/nas-backup
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Create backup log file
+  ansible.builtin.file:
+    path: "{{ backup_log }}"
+    state: touch
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  changed_when: false
+
+- name: Schedule nightly backup via cron
+  ansible.builtin.cron:
+    name: "nas-backup"
+    job: "/usr/local/bin/nas-backup"
+    minute: "{{ backup_schedule.split(' ')[0] }}"
+    hour: "{{ backup_schedule.split(' ')[1] }}"
+    day: "{{ backup_schedule.split(' ')[2] }}"
+    month: "{{ backup_schedule.split(' ')[3] }}"
+    weekday: "{{ backup_schedule.split(' ')[4] }}"
+    user: root
+  become: true

@@ -1,0 +1,42 @@
+---
+- name: Install fuse dependency
+  ansible.builtin.apt:
+    name:
+      - fuse3
+      - libfuse3-dev
+    state: present
+    update_cache: true
+  become: true
+
+- name: Check if mergerfs is already installed
+  ansible.builtin.command: mergerfs --version
+  register: mergerfs_check
+  changed_when: false
+  failed_when: false
+
+- name: Download mergerfs .deb package
+  ansible.builtin.get_url:
+    url: "https://github.com/trapexit/mergerfs/releases/download/{{ mergerfs_version }}/mergerfs_{{ mergerfs_version }}.debian-bookworm_{{ mergerfs_arch }}.deb"
+    dest: "/tmp/mergerfs.deb"
+    mode: "0644"
+  when: mergerfs_check.rc != 0
+
+- name: Install mergerfs from .deb package
+  ansible.builtin.apt:
+    deb: /tmp/mergerfs.deb
+    state: present
+  become: true
+  when: mergerfs_check.rc != 0
+
+- name: Build mergerfs mount source string from data drives
+  ansible.builtin.set_fact:
+    mergerfs_sources: "{{ range(1, (usb_data_drives | length) + 1) | map('regex_replace', '^(.*)$', data_mount_base + '/disk\\1') | join(':') }}"
+
+- name: Configure mergerfs pool in fstab
+  ansible.posix.mount:
+    path: "{{ mergerfs_mount }}"
+    src: "{{ mergerfs_sources }}"
+    fstype: fuse.mergerfs
+    opts: "{{ mergerfs_options }}"
+    state: mounted
+  become: true

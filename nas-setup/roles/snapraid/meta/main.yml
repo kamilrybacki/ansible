@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: snapraid
+  description: Install and configure SnapRAID for parity protection
+  author: nas-setup
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+dependencies:
+  - role: mergerfs

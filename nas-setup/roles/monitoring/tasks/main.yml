@@ -1,0 +1,24 @@
+---
+- name: Install monitoring packages
+  ansible.builtin.apt:
+    name: "{{ monitoring_packages }}"
+    state: present
+    update_cache: true
+  become: true
+
+- name: Deploy smartd configuration
+  ansible.builtin.template:
+    src: smartd.conf.j2
+    dest: /etc/smartd.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: restart smartd
+
+- name: Enable and start smartd service
+  ansible.builtin.systemd:
+    name: smartd
+    enabled: true
+    state: started
+  become: true

@@ -1,0 +1,4 @@
+---
+# Drive preparation defaults
+partition_type: gpt
+wipe_existing: false

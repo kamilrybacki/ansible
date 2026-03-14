@@ -1,0 +1,137 @@
+---
+- name: Install required packages for drive management
+  ansible.builtin.apt:
+    name:
+      - parted
+      - e2fsprogs
+      - xfsprogs
+      - gdisk
+      - util-linux
+    state: present
+    update_cache: true
+  become: true
+
+- name: Create mount point directories for data drives
+  ansible.builtin.file:
+    path: "{{ data_mount_base }}/disk{{ idx + 1 }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ usb_data_drives }}"
+  loop_control:
+    index_var: idx
+  become: true
+
+- name: Create mount point directories for parity drives
+  ansible.builtin.file:
+    path: "{{ parity_mount_base }}/parity{{ idx + 1 }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ usb_parity_drives }}"
+  loop_control:
+    index_var: idx
+  become: true
+
+- name: Create internal drive mount point
+  ansible.builtin.file:
+    path: "{{ internal_mount }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Create mergerfs pool mount point
+  ansible.builtin.file:
+    path: "{{ mergerfs_mount }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Create partition table on USB data drives
+  community.general.parted:
+    device: "{{ item }}"
+    label: gpt
+    number: 1
+    state: present
+    part_start: "0%"
+    part_end: "100%"
+    fs_type: "{{ filesystem_type }}"
+  loop: "{{ usb_data_drives }}"
+  become: true
+
+- name: Create partition table on USB parity drives
+  community.general.parted:
+    device: "{{ item }}"
+    label: gpt
+    number: 1
+    state: present
+    part_start: "0%"
+    part_end: "100%"
+    fs_type: "{{ filesystem_type }}"
+  loop: "{{ usb_parity_drives }}"
+  become: true
+
+- name: Create partition table on internal drive
+  community.general.parted:
+    device: "{{ internal_drive }}"
+    label: gpt
+    number: 1
+    state: present
+    part_start: "0%"
+    part_end: "100%"
+    fs_type: "{{ filesystem_type }}"
+  become: true
+
+- name: Format USB data drive partitions
+  community.general.filesystem:
+    dev: "{{ item }}1"
+    fstype: "{{ filesystem_type }}"
+    force: "{{ wipe_existing }}"
+  loop: "{{ usb_data_drives }}"
+  become: true
+
+- name: Format USB parity drive partitions
+  community.general.filesystem:
+    dev: "{{ item }}1"
+    fstype: "{{ filesystem_type }}"
+    force: "{{ wipe_existing }}"
+  loop: "{{ usb_parity_drives }}"
+  become: true
+
+- name: Format internal drive partition
+  community.general.filesystem:
+    dev: "{{ internal_drive }}1"
+    fstype: "{{ filesystem_type }}"
+    force: "{{ wipe_existing }}"
+  become: true
+
+- name: Mount USB data drives via fstab
+  ansible.posix.mount:
+    path: "{{ data_mount_base }}/disk{{ idx + 1 }}"
+    src: "{{ item }}1"
+    fstype: "{{ filesystem_type }}"
+    opts: defaults,nofail
+    state: mounted
+  loop: "{{ usb_data_drives }}"
+  loop_control:
+    index_var: idx
+  become: true
+
+- name: Mount parity drives via fstab
+  ansible.posix.mount:
+    path: "{{ parity_mount_base }}/parity{{ idx + 1 }}"
+    src: "{{ item }}1"
+    fstype: "{{ filesystem_type }}"
+    opts: defaults,nofail
+    state: mounted
+  loop: "{{ usb_parity_drives }}"
+  loop_control:
+    index_var: idx
+  become: true
+
+- name: Mount internal drive via fstab
+  ansible.posix.mount:
+    path: "{{ internal_mount }}"
+    src: "{{ internal_drive }}1"
+    fstype: "{{ filesystem_type }}"
+    opts: defaults,nofail
+    state: mounted
+  become: true
