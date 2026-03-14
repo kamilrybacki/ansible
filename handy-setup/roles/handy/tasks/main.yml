@@ -98,3 +98,121 @@
     path: "{{ handy_download_dir }}"
     state: absent
   when: handy_check.rc != 0
+
+# --- Model predownload ---
+
+- name: Create models directory
+  ansible.builtin.file:
+    path: "{{ handy_models_dir }}"
+    state: directory
+    mode: "0755"
+  when: handy_model != "none"
+
+- name: Set selected model info
+  ansible.builtin.set_fact:
+    handy_selected_model: "{{ handy_model_catalog[handy_model] }}"
+  when: handy_model != "none"
+
+- name: Check if model already exists (Whisper)
+  ansible.builtin.stat:
+    path: "{{ handy_models_dir }}/{{ handy_selected_model.filename }}"
+  register: model_file
+  when:
+    - handy_model != "none"
+    - handy_selected_model.type == "whisper"
+
+- name: Check if model already exists (Parakeet)
+  ansible.builtin.stat:
+    path: "{{ handy_models_dir }}/{{ handy_selected_model.filename | regex_replace('\\.tar\\.gz$', '') }}"
+  register: parakeet_dir
+  when:
+    - handy_model != "none"
+    - handy_selected_model.type == "parakeet"
+
+- name: Download Whisper model
+  ansible.builtin.get_url:
+    url: "{{ handy_selected_model.url }}"
+    dest: "{{ handy_models_dir }}/{{ handy_selected_model.filename }}"
+    mode: "0644"
+  when:
+    - handy_model != "none"
+    - handy_selected_model.type == "whisper"
+    - not model_file.stat.exists
+
+- name: Download Parakeet model archive
+  ansible.builtin.get_url:
+    url: "{{ handy_selected_model.url }}"
+    dest: "/tmp/{{ handy_selected_model.filename }}"
+    mode: "0644"
+  when:
+    - handy_model != "none"
+    - handy_selected_model.type == "parakeet"
+    - not parakeet_dir.stat.exists
+
+- name: Extract Parakeet model
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ handy_selected_model.filename }}"
+    dest: "{{ handy_models_dir }}"
+    remote_src: true
+  when:
+    - handy_model != "none"
+    - handy_selected_model.type == "parakeet"
+    - not parakeet_dir.stat.exists
+
+- name: Remove Parakeet archive
+  ansible.builtin.file:
+    path: "/tmp/{{ handy_selected_model.filename }}"
+    state: absent
+  when:
+    - handy_model != "none"
+    - handy_selected_model.type == "parakeet"
+    - not parakeet_dir.stat.exists
+
+# --- Desktop shortcut ---
+
+- name: Resolve Handy executable path
+  ansible.builtin.set_fact:
+    handy_exec_path: >-
+      {{ (handy_install_method == 'appimage')
+         | ternary(handy_appimage_dir ~ '/' ~ handy_appimage_filename, '/usr/bin/handy') }}
+  when: handy_shortcut == "yes"
+
+- name: Ensure applications directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.local/share/applications"
+    state: directory
+    mode: "0755"
+  when: handy_shortcut == "yes"
+
+- name: Create desktop shortcut
+  ansible.builtin.copy:
+    dest: "{{ handy_desktop_file }}"
+    mode: "0644"
+    content: |
+      [Desktop Entry]
+      Name=Handy
+      Comment=Speech-to-text dictation
+      Exec={{ handy_exec_path | trim }}
+      Terminal=false
+      Type=Application
+      Categories=Utility;Audio;Accessibility;
+      Keywords=speech;voice;dictation;transcription;whisper;
+      StartupNotify=true
+  when: handy_shortcut == "yes"
+
+- name: Ensure autostart directory exists
+  ansible.builtin.file:
+    path: "{{ handy_autostart_dir }}"
+    state: directory
+    mode: "0755"
+  when: handy_autostart == "yes"
+
+- name: Enable autostart on login
+  ansible.builtin.copy:
+    src: "{{ handy_desktop_file }}"
+    dest: "{{ handy_autostart_dir }}/handy.desktop"
+    remote_src: true
+    mode: "0644"
+  when:
+    - handy_autostart == "yes"
+    - handy_shortcut == "yes"
