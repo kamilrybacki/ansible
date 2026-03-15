@@ -1,4 +1,5 @@
 ---
+ansible_user: root
 vaultwarden_container_name: vaultwarden
 vaultwarden_image: "vaultwarden/server:1.32.7"
 vaultwarden_port: 8080

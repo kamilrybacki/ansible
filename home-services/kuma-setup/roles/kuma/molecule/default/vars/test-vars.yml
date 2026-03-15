@@ -1,4 +1,5 @@
 ---
+ansible_user: root
 kuma_container_name: kuma
 kuma_image: "louislam/uptime-kuma:1.23.16"
 kuma_port: 3001
