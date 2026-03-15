@@ -4,5 +4,4 @@ galaxy_info:
   author: kamilrybacki
   description: Deploy Seafile server stack via Docker Compose
   min_ansible_version: "2.10"
-dependencies:
-  - docker
+dependencies: []

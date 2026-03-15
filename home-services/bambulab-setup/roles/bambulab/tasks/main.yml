@@ -65,6 +65,7 @@
     name: "{{ ha_container_name }}"
     state: started
     restart: true
+  when: not (bambulab_skip_ha_restart | default(false))
 
 - name: Wait for Home Assistant to restart
   ansible.builtin.uri:
@@ -75,6 +76,7 @@
   until: ha_bambulab_check.status == 200
   retries: 30
   delay: 10
+  when: not (bambulab_skip_ha_restart | default(false))
 
 - name: Display ha-bambulab post-install instructions
   ansible.builtin.debug:

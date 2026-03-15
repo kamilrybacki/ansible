@@ -14,16 +14,20 @@
     headers:
       Accept: "application/vnd.github.v3+json"
   register: fastfetch_release
-  when: fastfetch_check.rc != 0
+  when:
+    - fastfetch_check.rc != 0
+    - fastfetch_deb_url is not defined
 
-- name: Set fastfetch download URL
+- name: Set fastfetch download URL from release API
   ansible.builtin.set_fact:
     fastfetch_deb_url: >-
       {{ fastfetch_release.json.assets
          | selectattr('name', 'match', 'fastfetch-linux-amd64\\.deb')
          | map(attribute='browser_download_url')
          | first }}
-  when: fastfetch_check.rc != 0
+  when:
+    - fastfetch_check.rc != 0
+    - fastfetch_deb_url is not defined
 
 - name: Download fastfetch .deb
   ansible.builtin.get_url:

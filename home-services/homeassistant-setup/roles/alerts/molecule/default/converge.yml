@@ -16,7 +16,5 @@
         content: ""
         dest: "{{ ha_config_dir }}/configuration.yaml"
         mode: "0644"
-  tasks:
-    - name: Include alerts role tasks
-      ansible.builtin.include_tasks:
-        file: ../../tasks/main.yml
+  roles:
+    - role: alerts

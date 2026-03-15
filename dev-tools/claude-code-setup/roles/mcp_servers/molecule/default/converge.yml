@@ -9,10 +9,27 @@
       ansible.builtin.copy:
         content: |
           #!/bin/bash
-          echo "mock claude: $@"
+          # Mock claude CLI for molecule testing
+          case "$1" in
+            mcp)
+              case "$2" in
+                list)
+                  echo ""
+                  ;;
+                add)
+                  echo "Added MCP server: $5"
+                  ;;
+                *)
+                  echo "mock claude mcp: $@"
+                  ;;
+              esac
+              ;;
+            *)
+              echo "mock claude: $@"
+              ;;
+          esac
+          exit 0
         dest: /usr/local/bin/claude
         mode: "0755"
-  tasks:
-    - name: Include mcp_servers role tasks
-      ansible.builtin.include_tasks:
-        file: ../../tasks/main.yml
+  roles:
+    - role: mcp_servers

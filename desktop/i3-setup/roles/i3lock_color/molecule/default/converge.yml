@@ -9,6 +9,7 @@
           - git
           - autoconf
           - automake
+          - libtool
           - pkg-config
           - libpam-dev
           - libcairo-dev
@@ -24,6 +25,7 @@
           - libxcb-xrm-dev
           - libxcb-randr0-dev
           - libgif-dev
+          - libjpeg-dev
           - make
           - gcc
         state: present

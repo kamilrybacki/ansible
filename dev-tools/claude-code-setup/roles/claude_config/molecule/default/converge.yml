@@ -31,7 +31,5 @@
           Follow coding standards.
         dest: "{{ playbook_dir }}/../../files/claude/rules/coding-style.md"
         mode: "0644"
-  tasks:
-    - name: Include claude_config role tasks
-      ansible.builtin.include_tasks:
-        file: ../../tasks/main.yml
+  roles:
+    - role: claude_config

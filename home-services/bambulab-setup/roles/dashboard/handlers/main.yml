@@ -1,0 +1,4 @@
+---
+- name: restart homeassistant
+  ansible.builtin.debug:
+    msg: "Handler: restart homeassistant (no-op in standalone role test)"

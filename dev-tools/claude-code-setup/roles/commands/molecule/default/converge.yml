@@ -18,7 +18,5 @@
           Onboard a new project with Serena.
         dest: "{{ playbook_dir }}/../../templates/serena-onboard.md.j2"
         mode: "0644"
-  tasks:
-    - name: Include commands role tasks
-      ansible.builtin.include_tasks:
-        file: ../../tasks/main.yml
+  roles:
+    - role: commands
