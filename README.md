@@ -14,6 +14,9 @@ Each playbook set lives in its own subdirectory and is fully self-contained — 
 | [`nas-setup/`](./nas-setup/) | NAS setup — mergerfs, SnapRAID, NFS, SMART monitoring, backups |
 | [`seafile-setup/`](./seafile-setup/) | Seafile self-hosted cloud storage — Docker, Caddy reverse proxy |
 | [`homeassistant-setup/`](./homeassistant-setup/) | Home Assistant homelab monitor — Docker, monitoring, dashboards, webhook alerts |
+| [`secure-homelab-access/`](./secure-homelab-access/) | Secure homelab remote access — WireGuard, Authelia, Caddy, fail2ban, Cockpit |
+| [`handy-setup/`](./handy-setup/) | Handy speech-to-text — local voice transcription with model predownload |
+| [`claude-code-setup/`](./claude-code-setup/) | Claude Code environment — CLI, plugins, MCP servers, Serena, rules |
 
 ## Usage
 
