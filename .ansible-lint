@@ -9,6 +9,7 @@ skip_list:
   - command-instead-of-shell  # Using shell where command suffices — pre-existing
   - yaml[comments-indentation]  # Comment indentation — conflicts with existing style
   - yaml[octal-values]  # Octal value format — pre-existing
+  - latest[git]  # Git clone without pinned version — pre-existing in i3lock_color
 
 warn_list:
   - role-name  # Role name conventions
