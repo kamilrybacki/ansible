@@ -1,0 +1,181 @@
+---
+# =============================================================================
+# Secure Homelab Remote Access
+# =============================================================================
+# Deploys a full secure remote access stack:
+#   WireGuard VPN → Caddy (HTTPS) → Authelia (2FA) → Services
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.ini setup.yml
+#   ansible-playbook -i inventory/hosts.ini setup.yml --tags wireguard,caddy
+#
+# All critical values are prompted interactively at runtime.
+# Sensible defaults for ports, subnets, etc. live in group_vars/all.yml.
+# =============================================================================
+
+- name: Secure Homelab Remote Access Setup
+  hosts: homelab
+  become: true
+
+  vars_prompt:
+    # -- Networking --
+    - name: prompt_public_ip
+      prompt: |
+
+        ══════════════════════════════════════════════
+          Secure Homelab Remote Access - Setup Wizard
+        ══════════════════════════════════════════════
+
+        [1/8] What is your public IP address?
+      private: false
+
+    - name: prompt_domain
+      prompt: |
+        [2/8] What domain will you use? (e.g. homelab.example.com)
+              DNS records for *.domain should point to your VPN address.
+              You can also use <your-ip>.nip.io for testing without DNS
+      private: false
+
+    - name: prompt_ssh_port
+      prompt: "[3/8] SSH port"
+      default: "22"
+      private: false
+
+    - name: prompt_caddy_email
+      prompt: |
+        [4/8] Email for Let's Encrypt certificate notifications
+      private: false
+
+    # -- WireGuard --
+    - name: prompt_wireguard_password
+      prompt: |
+        [5/8] WireGuard admin UI password (for managing VPN peers)
+      private: true
+      confirm: true
+
+    # -- Authelia --
+    - name: prompt_authelia_user
+      prompt: "[6/8] Authelia admin username"
+      default: "admin"
+      private: false
+
+    - name: prompt_authelia_password
+      prompt: "[7/8] Authelia admin password (will be hashed with argon2id)"
+      private: true
+      confirm: true
+
+    - name: prompt_authelia_email
+      prompt: "[8/8] Authelia admin email (for notifications and recovery)"
+      private: false
+
+  pre_tasks:
+    - name: Set prompted values as facts
+      ansible.builtin.set_fact:
+        public_ip: "{{ prompt_public_ip }}"
+        domain: "{{ prompt_domain }}"
+        ssh_port: "{{ prompt_ssh_port }}"
+        caddy_email: "{{ prompt_caddy_email }}"
+        wireguard_password: "{{ prompt_wireguard_password }}"
+        authelia_default_user: "{{ prompt_authelia_user }}"
+        authelia_default_email: "{{ prompt_authelia_email }}"
+
+    - name: Generate Authelia password hash (argon2id)
+      ansible.builtin.command:
+        cmd: "openssl rand -hex 32"
+      register: _authelia_salt
+      changed_when: false
+      no_log: true
+
+    - name: Set Authelia password hash
+      ansible.builtin.set_fact:
+        authelia_default_password_hash: "{{ prompt_authelia_password | password_hash('sha512') }}"
+      no_log: true
+
+    - name: Auto-generate secrets
+      ansible.builtin.set_fact:
+        authelia_jwt_secret: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=64') }}"
+        authelia_session_secret: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=64') }}"
+        authelia_storage_encryption_key: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=64') }}"
+      no_log: true
+
+    - name: Update firewall ports from prompted SSH port
+      ansible.builtin.set_fact:
+        firewall_allowed_tcp_ports:
+          - "{{ ssh_port }}"
+        firewall_allowed_udp_ports:
+          - "{{ wireguard_port }}"
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ══════════════════════════════════════════════
+            Deployment Plan
+          ══════════════════════════════════════════════
+
+            Public IP:    {{ public_ip }}
+            Domain:       {{ domain }}
+            SSH Port:     {{ ssh_port }}
+            VPN Port:     {{ wireguard_port }}/UDP
+            VPN Subnet:   {{ vpn_subnet }}
+            Data Dir:     {{ docker_data_dir }}
+
+            Services:
+              auth.{{ domain }}     → Authelia 2FA portal
+              home.{{ domain }}     → Homepage dashboard
+              cockpit.{{ domain }}  → System management + terminal
+              wg.{{ domain }}       → WireGuard peer management
+
+            Auth user:    {{ authelia_default_user }}
+            Secrets:      auto-generated (jwt, session, encryption key)
+          ══════════════════════════════════════════════
+
+    - name: Confirm deployment
+      ansible.builtin.pause:
+        prompt: "Press ENTER to deploy, or Ctrl+C to abort"
+
+  roles:
+    - role: firewall
+      tags: [firewall, security]
+
+    - role: fail2ban
+      tags: [fail2ban, security]
+
+    - role: docker
+      tags: [docker]
+
+    - role: wireguard
+      tags: [wireguard, vpn]
+
+    - role: authelia
+      tags: [authelia, auth]
+
+    - role: caddy
+      tags: [caddy, proxy]
+
+    - role: cockpit
+      tags: [cockpit, terminal]
+
+    - role: homepage
+      tags: [homepage, dashboard]
+
+  post_tasks:
+    - name: Deployment complete
+      ansible.builtin.debug:
+        msg: |
+          ══════════════════════════════════════════════
+            Deployment Complete!
+          ══════════════════════════════════════════════
+
+          1. Connect to WireGuard:
+             Open https://{{ public_ip }}:{{ wireguard_web_port }}
+             → Create a VPN peer → Download config → Import into WireGuard client
+
+          2. Once connected via VPN, access your services:
+             https://auth.{{ domain }}    → Set up 2FA (first login)
+             https://home.{{ domain }}    → Dashboard
+             https://cockpit.{{ domain }} → Terminal & system management
+             https://wg.{{ domain }}      → VPN management
+
+          3. DNS: Point *.{{ domain }} → {{ vpn_address }}
+             (via Pi-hole, /etc/hosts, or your DNS provider)
+          ══════════════════════════════════════════════
