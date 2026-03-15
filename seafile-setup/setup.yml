@@ -1,0 +1,37 @@
+---
+- name: Gather Seafile configuration
+  hosts: local
+  gather_facts: false
+  vars_prompt:
+    - name: seafile_admin_email
+      prompt: "Admin email for Seafile"
+      private: false
+
+    - name: seafile_admin_password
+      prompt: "Admin password for Seafile"
+      private: true
+
+    - name: seafile_db_root_password
+      prompt: "MariaDB root password"
+      private: true
+
+    - name: caddy_domain
+      prompt: "Domain for HTTPS access (leave empty to skip Caddy and use HTTP only)"
+      default: ""
+      private: false
+
+  tasks:
+    - name: Store configuration as host facts
+      ansible.builtin.set_fact:
+        seafile_admin_email: "{{ seafile_admin_email }}"
+        seafile_admin_password: "{{ seafile_admin_password }}"
+        seafile_db_root_password: "{{ seafile_db_root_password }}"
+        caddy_domain: "{{ caddy_domain }}"
+
+- name: Select storage volume and deploy Seafile
+  hosts: local
+  become: true
+  roles:
+    - volume_select
+    - seafile
+    - caddy
