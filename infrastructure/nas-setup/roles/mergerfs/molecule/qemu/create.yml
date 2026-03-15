@@ -1,0 +1,99 @@
+---
+- name: Create QEMU VM for mergerfs testing
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Create working directory
+      ansible.builtin.file:
+        path: /tmp/molecule-qemu
+        state: directory
+        mode: "0755"
+
+    - name: Generate SSH key pair
+      ansible.builtin.command:
+        cmd: ssh-keygen -t ed25519 -f /tmp/molecule-qemu/id_rsa -N ""
+        creates: /tmp/molecule-qemu/id_rsa
+
+    - name: Read public key
+      ansible.builtin.slurp:
+        src: /tmp/molecule-qemu/id_rsa.pub
+      register: ssh_pubkey
+
+    - name: Download Ubuntu cloud image (if not cached)
+      ansible.builtin.get_url:
+        url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+        dest: /tmp/molecule-qemu/ubuntu-noble.img
+        mode: "0644"
+
+    - name: Create VM disk from cloud image
+      ansible.builtin.command:
+        cmd: >
+          qemu-img create -f qcow2
+          -b /tmp/molecule-qemu/ubuntu-noble.img
+          -F qcow2
+          /tmp/molecule-qemu/vm-disk.qcow2
+          10G
+      changed_when: true
+
+    - name: Create loopback disk images for mergerfs testing
+      ansible.builtin.command:
+        cmd: "qemu-img create -f raw /tmp/molecule-qemu/data-disk-{{ item }}.img 1G"
+      loop: ["1", "2", "3"]
+      changed_when: true
+
+    - name: Create cloud-init user-data
+      ansible.builtin.copy:
+        content: |
+          #cloud-config
+          users:
+            - name: ubuntu
+              sudo: ALL=(ALL) NOPASSWD:ALL
+              ssh_authorized_keys:
+                - {{ ssh_pubkey.content | b64decode | trim }}
+          package_update: true
+          packages:
+            - python3
+        dest: /tmp/molecule-qemu/user-data
+        mode: "0644"
+
+    - name: Create cloud-init meta-data
+      ansible.builtin.copy:
+        content: |
+          instance-id: mergerfs-test
+          local-hostname: mergerfs-qemu-test
+        dest: /tmp/molecule-qemu/meta-data
+        mode: "0644"
+
+    - name: Create cloud-init ISO
+      ansible.builtin.command:
+        cmd: >
+          cloud-localds /tmp/molecule-qemu/cloud-init.iso
+          /tmp/molecule-qemu/user-data
+          /tmp/molecule-qemu/meta-data
+      changed_when: true
+
+    - name: Start QEMU VM
+      ansible.builtin.command:
+        cmd: >
+          qemu-system-x86_64
+          -m 2048
+          -smp 2
+          -nographic
+          -drive file=/tmp/molecule-qemu/vm-disk.qcow2,format=qcow2
+          -drive file=/tmp/molecule-qemu/cloud-init.iso,format=raw
+          -drive file=/tmp/molecule-qemu/data-disk-1.img,format=raw
+          -drive file=/tmp/molecule-qemu/data-disk-2.img,format=raw
+          -drive file=/tmp/molecule-qemu/data-disk-3.img,format=raw
+          -netdev user,id=net0,hostfwd=tcp::2222-:22
+          -device virtio-net-pci,netdev=net0
+          -daemonize
+          -pidfile /tmp/molecule-qemu/qemu.pid
+      changed_when: true
+
+    - name: Wait for SSH to become available
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 2222
+        delay: 30
+        timeout: 300

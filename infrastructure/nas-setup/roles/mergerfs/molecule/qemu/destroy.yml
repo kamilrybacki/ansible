@@ -1,0 +1,23 @@
+---
+- name: Destroy QEMU VM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Read QEMU PID
+      ansible.builtin.slurp:
+        src: /tmp/molecule-qemu/qemu.pid
+      register: qemu_pid
+      failed_when: false
+
+    - name: Kill QEMU process
+      ansible.builtin.command:
+        cmd: "kill {{ qemu_pid.content | b64decode | trim }}"
+      when: qemu_pid is not failed
+      changed_when: true
+      failed_when: false
+
+    - name: Clean up working directory
+      ansible.builtin.file:
+        path: /tmp/molecule-qemu
+        state: absent

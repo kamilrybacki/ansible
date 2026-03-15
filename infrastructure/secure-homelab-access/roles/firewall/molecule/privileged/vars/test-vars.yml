@@ -1,0 +1,9 @@
+---
+ufw_packages:
+  - ufw
+firewall_allowed_tcp_ports:
+  - "22"
+  - "53"
+firewall_allowed_udp_ports:
+  - "51820"
+vpn_subnet: "10.8.0.0/24"

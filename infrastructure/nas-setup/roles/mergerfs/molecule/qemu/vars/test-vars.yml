@@ -1,0 +1,10 @@
+---
+mergerfs_version: "2.40.2"
+mergerfs_arch: "amd64"
+mergerfs_mount: /mnt/pool
+data_mount_base: /mnt/data
+usb_data_drives:
+  - /dev/sdb
+  - /dev/sdc
+  - /dev/sdd
+mergerfs_options: "defaults,allow_other,use_ino,category.create=mfs,cache.files=partial,dropcacheonclose=true,minfreespace=10G,fsname=mergerfs-pool"

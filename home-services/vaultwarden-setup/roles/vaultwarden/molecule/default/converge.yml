@@ -1,0 +1,14 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars_files:
+    - vars/test-vars.yml
+  pre_tasks:
+    - name: Install python3-docker (required by role)
+      ansible.builtin.apt:
+        name: python3-docker
+        state: present
+        update_cache: true
+  roles:
+    - role: vaultwarden

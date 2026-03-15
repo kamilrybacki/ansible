@@ -1,0 +1,33 @@
+---
+- name: Converge (smoke test - install only)
+  hosts: all
+  become: true
+  vars_files:
+    - vars/test-vars.yml
+  tasks:
+    - name: Install fuse3 dependencies
+      ansible.builtin.apt:
+        name:
+          - fuse3
+          - libfuse3-dev
+        state: present
+        update_cache: true
+
+    - name: Check if mergerfs is already installed
+      ansible.builtin.command: mergerfs --version
+      register: mergerfs_check
+      changed_when: false
+      failed_when: false
+
+    - name: Download mergerfs .deb package
+      ansible.builtin.get_url:
+        url: "https://github.com/trapexit/mergerfs/releases/download/{{ mergerfs_version }}/mergerfs_{{ mergerfs_version }}.debian-bookworm_{{ mergerfs_arch }}.deb"
+        dest: "/tmp/mergerfs.deb"
+        mode: "0644"
+      when: mergerfs_check.rc != 0
+
+    - name: Install mergerfs from .deb
+      ansible.builtin.apt:
+        deb: "/tmp/mergerfs.deb"
+        state: present
+      when: mergerfs_check.rc != 0

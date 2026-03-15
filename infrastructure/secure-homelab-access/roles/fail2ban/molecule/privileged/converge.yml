@@ -1,0 +1,14 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars_files:
+    - vars/test-vars.yml
+  pre_tasks:
+    - name: Create auth.log for fail2ban to monitor
+      ansible.builtin.file:
+        path: /var/log/auth.log
+        state: touch
+        mode: "0640"
+  roles:
+    - role: fail2ban

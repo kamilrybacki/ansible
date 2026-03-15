@@ -1,0 +1,37 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars_files:
+    - vars/test-vars.yml
+  pre_tasks:
+    - name: Create mount point directories for data drives
+      ansible.builtin.file:
+        path: "/mnt/data/disk{{ item }}"
+        state: directory
+        mode: "0755"
+      loop: ["1", "2", "3"]
+
+    - name: Create mergerfs mount point
+      ansible.builtin.file:
+        path: "{{ mergerfs_mount }}"
+        state: directory
+        mode: "0755"
+
+    - name: Format data drives
+      community.general.filesystem:
+        fstype: ext4
+        dev: "/dev/{{ item }}"
+      loop: ["sdb", "sdc", "sdd"]
+
+    - name: Mount data drives
+      ansible.posix.mount:
+        path: "/mnt/data/disk{{ idx + 1 }}"
+        src: "/dev/{{ item }}"
+        fstype: ext4
+        state: mounted
+      loop: ["sdb", "sdc", "sdd"]
+      loop_control:
+        index_var: idx
+  roles:
+    - role: mergerfs
