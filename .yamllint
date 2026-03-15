@@ -19,3 +19,4 @@ ignore:
   - .git/
   - docs/
   - '*.md'
+  - dev-tools/claude-code-setup/files/
