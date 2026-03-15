@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  role_name: claude_cli
+  author: kamilrybacki
+  description: Install Claude Code CLI via Node.js and npm
+  min_ansible_version: "2.10"
+dependencies: []

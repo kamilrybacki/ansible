@@ -1,0 +1,46 @@
+---
+# Play 1: Gather connection details and build dynamic inventory
+- name: Gather connection details
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_prompt:
+    - name: target_host
+      prompt: "Target host IP/hostname (enter 'localhost' for this machine)"
+      default: "localhost"
+      private: false
+
+    - name: target_user
+      prompt: "SSH user for the target (ignored if localhost)"
+      default: ""
+      private: false
+
+  tasks:
+    - name: Add target to dynamic inventory (remote)
+      ansible.builtin.add_host:
+        name: "{{ target_host }}"
+        groups: claude_targets
+        ansible_connection: ssh
+        ansible_user: "{{ target_user }}"
+        ansible_python_interpreter: /usr/bin/python3
+      when: target_host != 'localhost'
+
+    - name: Add target to dynamic inventory (local)
+      ansible.builtin.add_host:
+        name: localhost
+        groups: claude_targets
+        ansible_connection: local
+        ansible_python_interpreter: /usr/bin/python3
+      when: target_host == 'localhost'
+
+# Play 2: Provision Claude Code
+- name: Provision Claude Code
+  hosts: claude_targets
+  gather_facts: true
+  roles:
+    - claude_cli
+    - claude_config
+    - plugins
+    - serena
+    - mcp_servers
+    - commands

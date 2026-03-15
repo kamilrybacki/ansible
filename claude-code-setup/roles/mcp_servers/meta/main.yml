@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  role_name: mcp_servers
+  author: kamilrybacki
+  description: Register standalone MCP servers in Claude Code
+  min_ansible_version: "2.10"
+dependencies: []

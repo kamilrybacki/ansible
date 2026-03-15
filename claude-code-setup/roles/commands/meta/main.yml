@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  role_name: commands
+  author: kamilrybacki
+  description: Deploy custom Claude Code slash commands
+  min_ansible_version: "2.10"
+dependencies: []

@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  role_name: claude_config
+  author: kamilrybacki
+  description: Sync Claude Code settings and rules to target machine
+  min_ansible_version: "2.10"
+dependencies: []

@@ -1,0 +1,23 @@
+---
+- name: Get current MCP server list
+  ansible.builtin.command: claude mcp list
+  register: current_mcp_servers
+  changed_when: false
+  failed_when: false
+
+- name: Register missing MCP servers
+  ansible.builtin.command: >-
+    claude mcp add
+    --transport {{ item.transport }}
+    --scope {{ item.scope }}
+    "{{ item.name }}"
+    "{{ item.url }}"
+  loop: "{{ claude_mcp_servers }}"
+  when: item.name not in (current_mcp_servers.stdout | default(''))
+
+- name: Display MCP post-setup instructions
+  ansible.builtin.debug:
+    msg: |
+      MCP servers registered. Complete OAuth flows manually:
+        1. Start Claude Code and trigger each MCP server
+        2. Follow the OAuth prompts for Gmail and Google Calendar

@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  role_name: plugins
+  author: kamilrybacki
+  description: Install Claude Code plugin marketplaces and plugins
+  min_ansible_version: "2.10"
+dependencies: []

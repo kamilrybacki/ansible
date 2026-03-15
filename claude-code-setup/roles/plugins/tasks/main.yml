@@ -1,0 +1,57 @@
+---
+- name: Get current marketplace list
+  ansible.builtin.command: claude plugins marketplace list
+  register: current_marketplaces
+  changed_when: false
+  failed_when: false
+
+- name: Register missing marketplaces
+  ansible.builtin.command: "claude plugins marketplace add {{ item }}"
+  loop: "{{ claude_marketplaces }}"
+  when: item not in (current_marketplaces.stdout | default(''))
+  register: marketplace_result
+  changed_when: marketplace_result.rc == 0
+  retries: 2
+  delay: 5
+  until: marketplace_result.rc == 0
+
+- name: Get current plugin list
+  ansible.builtin.command: claude plugins list
+  register: current_plugins
+  changed_when: false
+  failed_when: false
+
+- name: Install missing plugins
+  ansible.builtin.command: "claude plugins install {{ item }}"
+  loop: "{{ claude_plugins }}"
+  when: item not in (current_plugins.stdout | default(''))
+  register: plugin_result
+  changed_when: plugin_result.rc == 0
+  retries: 2
+  delay: 5
+  until: plugin_result.rc == 0
+
+- name: Get plugin list before disabling
+  ansible.builtin.command: claude plugins list
+  register: pre_disable_plugins
+  changed_when: false
+  failed_when: false
+
+- name: Disable blocked plugins
+  ansible.builtin.command: "claude plugins disable {{ item }}"
+  loop: "{{ claude_blocked_plugins }}"
+  failed_when: false
+  changed_when: item in (pre_disable_plugins.stdout | default(''))
+
+- name: Verify installed plugins
+  ansible.builtin.command: claude plugins list
+  register: final_plugins
+  changed_when: false
+
+- name: Assert all expected plugins are installed
+  ansible.builtin.assert:
+    that:
+      - "item in final_plugins.stdout"
+    fail_msg: "Plugin '{{ item }}' was not found after installation"
+    success_msg: "Plugin '{{ item }}' is installed"
+  loop: "{{ claude_plugins }}"

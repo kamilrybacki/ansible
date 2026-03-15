@@ -1,0 +1,13 @@
+---
+- name: Ensure commands directory exists
+  ansible.builtin.file:
+    path: "{{ claude_commands_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Deploy custom commands
+  ansible.builtin.template:
+    src: "{{ item.template }}"
+    dest: "{{ claude_commands_dir }}/{{ item.name }}.md"
+    mode: "0644"
+  loop: "{{ claude_commands }}"

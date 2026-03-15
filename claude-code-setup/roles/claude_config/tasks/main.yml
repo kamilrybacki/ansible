@@ -1,0 +1,33 @@
+---
+- name: Ensure Claude config directory exists
+  ansible.builtin.file:
+    path: "{{ claude_config_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Check for existing settings.json
+  ansible.builtin.stat:
+    path: "{{ claude_config_dir }}/settings.json"
+  register: existing_settings
+
+- name: Back up existing settings.json
+  ansible.builtin.command:
+    cmd: "mv {{ claude_config_dir }}/settings.json {{ claude_config_dir }}/settings.json.bak"
+  args:
+    creates: "{{ claude_config_dir }}/settings.json.bak"
+  when:
+    - existing_settings.stat.exists
+    - not existing_settings.stat.islnk
+
+- name: Copy settings.json
+  ansible.builtin.copy:
+    src: claude/settings.json
+    dest: "{{ claude_config_dir }}/settings.json"
+    mode: "0644"
+
+- name: Copy rules directory
+  ansible.builtin.copy:
+    src: claude/rules/
+    dest: "{{ claude_config_dir }}/rules/"
+    mode: "0644"
+    directory_mode: "0755"
