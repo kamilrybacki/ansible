@@ -1,0 +1,52 @@
+# handy-setup/roles/handy/defaults/main.yml
+---
+handy_common_packages:
+  - libgtk-layer-shell0
+  - libwebkit2gtk-4.1-0
+  - wget
+
+handy_x11_packages:
+  - xdotool
+
+handy_wayland_packages:
+  - wtype
+
+handy_deb_filename: "Handy_{{ handy_version }}_amd64.deb"
+handy_appimage_filename: "Handy_{{ handy_version }}_amd64.AppImage"
+
+handy_deb_url: "https://github.com/{{ handy_github_repo }}/releases/download/v{{ handy_version }}/{{ handy_deb_filename }}"
+handy_appimage_url: "https://github.com/{{ handy_github_repo }}/releases/download/v{{ handy_version }}/{{ handy_appimage_filename }}"
+
+# Models directory
+handy_models_dir: "{{ ansible_env.HOME }}/.config/com.pais.handy/models"
+
+# Model catalog — name to URL/filename mapping
+handy_model_catalog:
+  whisper-small:
+    url: "https://blob.handy.computer/ggml-small.bin"
+    filename: "ggml-small.bin"
+    type: "whisper"
+  whisper-medium:
+    url: "https://blob.handy.computer/whisper-medium-q4_1.bin"
+    filename: "whisper-medium-q4_1.bin"
+    type: "whisper"
+  whisper-turbo:
+    url: "https://blob.handy.computer/ggml-large-v3-turbo.bin"
+    filename: "ggml-large-v3-turbo.bin"
+    type: "whisper"
+  whisper-large:
+    url: "https://blob.handy.computer/ggml-large-v3-q5_0.bin"
+    filename: "ggml-large-v3-q5_0.bin"
+    type: "whisper"
+  parakeet-v2:
+    url: "https://blob.handy.computer/parakeet-tdt-0.6b-v2-int8.tar.gz"
+    filename: "parakeet-tdt-0.6b-v2-int8.tar.gz"
+    type: "parakeet"
+  parakeet-v3:
+    url: "https://blob.handy.computer/parakeet-tdt-0.6b-v3-int8.tar.gz"
+    filename: "parakeet-tdt-0.6b-v3-int8.tar.gz"
+    type: "parakeet"
+
+# Desktop shortcut defaults
+handy_desktop_file: "{{ ansible_env.HOME }}/.local/share/applications/handy.desktop"
+handy_autostart_dir: "{{ ansible_env.HOME }}/.config/autostart"

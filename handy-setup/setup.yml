@@ -1,0 +1,49 @@
+# handy-setup/setup.yml
+---
+- name: Handy speech-to-text setup
+  hosts: local
+  vars_prompt:
+    - name: handy_install_method
+      prompt: |-
+        Installation method
+          deb      - Debian package (recommended for Ubuntu/Debian)
+          appimage - Portable AppImage binary
+        Choose [deb/appimage]
+      default: "deb"
+      private: false
+
+    - name: handy_display_server
+      prompt: |-
+        Display server
+          x11     - X11 / Xorg (installs xdotool)
+          wayland - Wayland (installs wtype)
+        Choose [x11/wayland]
+      default: "x11"
+      private: false
+
+    - name: handy_model
+      prompt: |-
+        Predownload a speech recognition model
+          none           - Skip model download (download later from Handy UI)
+          whisper-small  - Whisper Small  (~487 MB, fast, lower accuracy)
+          whisper-medium - Whisper Medium (~492 MB, balanced)
+          whisper-turbo  - Whisper Turbo  (~1.6 GB, fast + accurate, needs GPU)
+          whisper-large  - Whisper Large  (~1.1 GB, best accuracy, needs GPU)
+          parakeet-v2    - Parakeet V2    (~473 MB, CPU-only, good speed)
+          parakeet-v3    - Parakeet V3    (~478 MB, CPU-only, auto language detection)
+        Choose model name
+      default: "none"
+      private: false
+
+    - name: handy_shortcut
+      prompt: "Create desktop application shortcut? [yes/no]"
+      default: "yes"
+      private: false
+
+    - name: handy_autostart
+      prompt: "Start Handy automatically on login? [yes/no]"
+      default: "no"
+      private: false
+
+  roles:
+    - handy
