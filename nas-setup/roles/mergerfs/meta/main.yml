@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: mergerfs
+  description: Install and configure mergerfs to pool data drives
+  author: nas-setup
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+dependencies:
+  - role: drives

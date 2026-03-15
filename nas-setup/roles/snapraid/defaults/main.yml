@@ -1,0 +1,3 @@
+---
+snapraid_install_method: apt
+snapraid_delete_threshold: 40

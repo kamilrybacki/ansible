@@ -1,0 +1,65 @@
+---
+# NAS Setup Configuration
+# Adjust these variables to match your hardware
+
+# --- Drive Topology ---
+# List ALL USB/external drives here. The playbook will automatically
+# split them into data vs parity drives based on the parity_drive_count.
+#
+# Example: 4 drives with parity_drive_count=1 → 3 data + 1 parity (like RAID5)
+# Example: 6 drives with parity_drive_count=2 → 4 data + 2 parity (like RAID6)
+#
+# Use 'lsblk' or 'blkid' to identify your drives
+all_usb_drives:
+  - /dev/sdb
+  - /dev/sdc
+  - /dev/sdd
+  - /dev/sde
+
+# Number of drives to dedicate to parity (1 = RAID5-like, 2 = RAID6-like)
+parity_drive_count: 1
+
+# --- Computed drive lists (do not edit) ---
+# Parity drives are taken from the END of all_usb_drives list
+usb_parity_drives: "{{ all_usb_drives[-parity_drive_count:] }}"
+usb_data_drives: "{{ all_usb_drives[:-parity_drive_count] }}"
+data_drive_count: "{{ all_usb_drives | length - parity_drive_count }}"
+
+# --- Internal HDD (for less important files, no redundancy) ---
+internal_drive: /dev/sda
+
+# --- Filesystem type for all drives ---
+filesystem_type: ext4
+
+# --- Mount points ---
+data_mount_base: /mnt/data        # Base path for individual data drive mounts
+parity_mount_base: /mnt/parity    # Base path for parity drive mounts
+internal_mount: /mnt/storage      # Mount point for the internal 2TB HDD
+mergerfs_mount: /mnt/pool         # Unified mergerfs pool mount point
+
+# --- mergerfs settings ---
+mergerfs_options: "defaults,allow_other,use_ino,category.create=mfs,cache.files=partial,dropcacheonclose=true,minfreespace=10G,fsname=mergerfs-pool"
+
+# --- SnapRAID settings ---
+snapraid_exclude_patterns:
+  - "*.unrecoverable"
+  - "/tmp/"
+  - "/lost+found/"
+  - ".Thumbs.db"
+  - ".DS_Store"
+  - "*.bak"
+snapraid_sync_schedule: "0 3 * * *"     # Nightly at 3 AM
+snapraid_scrub_schedule: "0 5 * * 0"    # Weekly scrub on Sunday at 5 AM
+
+# --- NFS settings ---
+nfs_allowed_network: "192.168.1.0/24"   # Network range allowed to access NFS shares
+nfs_options: "rw,sync,no_subtree_check,no_root_squash"
+
+# --- Monitoring settings ---
+smartd_alert_email: "your-email@example.com"
+
+# --- Backup settings ---
+backup_schedule: "0 4 * * *"    # Nightly at 4 AM (after SnapRAID sync)
+backup_source: "{{ mergerfs_mount }}"
+backup_dest: "{{ internal_mount }}/backups"
+backup_log: "/var/log/nas-backup.log"

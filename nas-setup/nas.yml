@@ -1,0 +1,74 @@
+---
+- name: NAS Setup — Dell Optiplex with mergerfs + SnapRAID
+  hosts: nas
+  gather_facts: true
+
+  vars_prompt:
+    - name: confirm_setup
+      prompt: |
+        This playbook will set up a NAS with the following configuration:
+          - {{ all_usb_drives | length }} USB drives ({{ all_usb_drives | length - parity_drive_count }} data + {{ parity_drive_count }} parity)
+          - 1 internal drive at {{ internal_drive }} mounted at {{ internal_mount }}
+          - mergerfs pool at {{ mergerfs_mount }}
+          - NFS shares exported to {{ nfs_allowed_network }}
+
+        WARNING: This will partition and format drives. Data will be lost!
+        Type 'yes' to continue
+      private: false
+
+  pre_tasks:
+    - name: Abort if not confirmed
+      ansible.builtin.fail:
+        msg: "Setup cancelled by user."
+      when: confirm_setup != 'yes'
+
+    - name: Validate drive topology
+      ansible.builtin.assert:
+        that:
+          - all_usb_drives | length >= 2
+          - parity_drive_count >= 1
+          - parity_drive_count < all_usb_drives | length
+          - (all_usb_drives | length - parity_drive_count) >= 1
+        fail_msg: >
+          Invalid drive topology. You need at least 2 USB drives
+          and at least 1 data drive after parity allocation.
+          Current: {{ all_usb_drives | length }} total, {{ parity_drive_count }} parity.
+
+    - name: Display drive layout
+      ansible.builtin.debug:
+        msg: |
+          Drive Layout:
+            Data drives ({{ usb_data_drives | length }}): {{ usb_data_drives | join(', ') }}
+            Parity drives ({{ usb_parity_drives | length }}): {{ usb_parity_drives | join(', ') }}
+            Internal drive: {{ internal_drive }}
+          Redundancy: Can survive {{ parity_drive_count }} simultaneous drive failure(s)
+
+  roles:
+    - role: drives
+    - role: mergerfs
+    - role: snapraid
+    - role: nfs
+    - role: monitoring
+    - role: backups
+
+  post_tasks:
+    - name: Display NAS setup summary
+      ansible.builtin.debug:
+        msg: |
+          NAS setup complete!
+
+          Pool mount:     {{ mergerfs_mount }} ({{ usb_data_drives | length }} data drives via mergerfs)
+          Internal mount: {{ internal_mount }} (single drive, no redundancy)
+          Parity:         SnapRAID with {{ usb_parity_drives | length }} parity drive(s)
+          Sharing:        NFS exports available to {{ nfs_allowed_network }}
+          Monitoring:     smartd alerts → {{ smartd_alert_email }}
+          Backups:        Pool → {{ backup_dest }} (nightly at {{ backup_schedule }})
+          SnapRAID sync:  Nightly at {{ snapraid_sync_schedule }}
+          SnapRAID scrub: Weekly at {{ snapraid_scrub_schedule }}
+
+          Next steps:
+            1. Update smartd_alert_email in group_vars/all.yml
+            2. Update nfs_allowed_network to match your LAN
+            3. Mount NFS shares on client machines:
+               mount -t nfs <nas-ip>:{{ mergerfs_mount }} /mnt/nas-pool
+               mount -t nfs <nas-ip>:{{ internal_mount }} /mnt/nas-storage
