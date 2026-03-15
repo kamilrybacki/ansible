@@ -1,0 +1,83 @@
+---
+name: CI - Fast
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install linters
+        run: pip install yamllint ansible-lint ansible-core
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Run yamllint
+        run: yamllint .
+
+      - name: Run ansible-lint
+        run: ansible-lint
+
+  discover-roles:
+    name: Discover Docker roles
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+      has_roles: ${{ steps.check.outputs.has_roles }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Discover testable roles
+        id: discover
+        run: ./scripts/discover-roles.sh docker >> "$GITHUB_OUTPUT"
+
+      - name: Check if any roles found
+        id: check
+        run: |
+          MATRIX='${{ steps.discover.outputs.matrix }}'
+          if echo "$MATRIX" | grep -q '"role_path"'; then
+            echo "has_roles=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_roles=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  test-roles-docker:
+    name: "Test: ${{ matrix.role_name }}"
+    needs: [lint, discover-roles]
+    if: needs.discover-roles.outputs.has_roles == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.discover-roles.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Run Molecule
+        working-directory: ${{ matrix.role_path }}
+        run: molecule test -s ${{ matrix.scenario }}
