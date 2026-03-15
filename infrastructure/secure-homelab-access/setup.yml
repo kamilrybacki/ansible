@@ -87,24 +87,36 @@
         pihole_password: "{{ prompt_pihole_password }}"
       no_log: true
 
-    - name: Generate Authelia password hash (bcrypt)
-      ansible.builtin.command:
-        cmd: "openssl rand -hex 32"
-      register: _authelia_salt
-      changed_when: false
-      no_log: true
-
     - name: Set Authelia password hash
       ansible.builtin.set_fact:
         authelia_default_password_hash: "{{ prompt_authelia_password | password_hash('bcrypt') }}"
       no_log: true
 
-    - name: Auto-generate secrets
+    - name: Ensure Authelia secrets directory exists
+      ansible.builtin.file:
+        path: "{{ authelia_data_dir }}/secrets"
+        state: directory
+        mode: "0700"
+        owner: root
+        group: root
+
+    - name: Generate and persist Authelia secrets (idempotent - written once, reused on re-runs)
       ansible.builtin.set_fact:
-        authelia_jwt_secret: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=64') }}"
-        authelia_session_secret: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=64') }}"
-        authelia_storage_encryption_key: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=64') }}"
+        authelia_jwt_secret: "{{ lookup('password', authelia_data_dir + '/secrets/jwt_secret chars=ascii_letters,digits length=64') }}"
+        authelia_session_secret: "{{ lookup('password', authelia_data_dir + '/secrets/session_secret chars=ascii_letters,digits length=64') }}"
+        authelia_storage_encryption_key: "{{ lookup('password', authelia_data_dir + '/secrets/storage_encryption_key chars=ascii_letters,digits length=64') }}"
       no_log: true
+
+    - name: Restrict Authelia secret files to root-only
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: "0600"
+        owner: root
+        group: root
+      loop:
+        - "{{ authelia_data_dir }}/secrets/jwt_secret"
+        - "{{ authelia_data_dir }}/secrets/session_secret"
+        - "{{ authelia_data_dir }}/secrets/storage_encryption_key"
 
     - name: Update firewall ports from prompted SSH port
       ansible.builtin.set_fact:

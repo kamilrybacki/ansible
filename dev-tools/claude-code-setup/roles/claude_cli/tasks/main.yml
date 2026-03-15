@@ -69,7 +69,3 @@
 - name: Display Claude Code version
   ansible.builtin.debug:
     msg: "Claude Code CLI version: {{ claude_version.stdout }}"
-
-- name: Set Claude CLI availability fact
-  ansible.builtin.set_fact:
-    claude_cli_available: true
