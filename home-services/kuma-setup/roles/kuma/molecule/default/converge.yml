@@ -14,5 +14,7 @@
       ansible.builtin.pip:
         name: docker
         state: present
-  roles:
-    - role: kuma
+  tasks:
+    - name: Include kuma role tasks (skip docker dependency)
+      ansible.builtin.include_tasks:
+        file: ../../tasks/main.yml
