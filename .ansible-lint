@@ -9,7 +9,6 @@ skip_list:
   - command-instead-of-shell  # Using shell where command suffices — pre-existing
   - yaml[comments-indentation]  # Comment indentation — conflicts with existing style
   - yaml[octal-values]  # Octal value format — pre-existing
-  - syntax-check[specific]  # Role resolution fails for cross-playbook refs and molecule converge files
 
 warn_list:
   - role-name  # Role name conventions
@@ -20,3 +19,6 @@ exclude_paths:
   - dev-tools/claude-code-setup/files/
   - .github/
   - '**/molecule/'
+  - k8s/k8s-full-setup/  # Uses cross-playbook import_playbook with external roles_path
+  - infrastructure/nas-setup/nas.yml  # Uses vars_prompt variables that fail syntax-check
+  - home-services/seafile-setup/roles/seafile/meta/  # Cross-playbook role dependency
