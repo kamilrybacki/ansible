@@ -1,0 +1,55 @@
+---
+- name: Create custom_components directory
+  ansible.builtin.file:
+    path: "{{ ha_config_dir }}/custom_components"
+    state: directory
+    mode: "0755"
+
+- name: Create HACS target directory
+  ansible.builtin.file:
+    path: "{{ ha_config_dir }}/custom_components/hacs"
+    state: directory
+    mode: "0755"
+
+- name: Download HACS release zip
+  ansible.builtin.get_url:
+    url: "{{ hacs_download_url }}"
+    dest: /tmp/hacs.zip
+    mode: "0644"
+
+- name: Extract HACS into custom_components
+  ansible.builtin.unarchive:
+    src: /tmp/hacs.zip
+    dest: "{{ ha_config_dir }}/custom_components/hacs"
+    remote_src: true
+
+- name: Remove HACS zip
+  ansible.builtin.file:
+    path: /tmp/hacs.zip
+    state: absent
+
+- name: Restart Home Assistant to load HACS
+  community.docker.docker_container:
+    name: "{{ ha_container_name }}"
+    state: started
+    restart: true
+
+- name: Wait for Home Assistant to restart
+  ansible.builtin.uri:
+    url: "http://localhost:{{ ha_port }}"
+    method: GET
+    status_code: 200
+  register: ha_hacs_check
+  until: ha_hacs_check.status == 200
+  retries: 30
+  delay: 10
+
+- name: Display HACS post-install instructions
+  ansible.builtin.debug:
+    msg: |
+      HACS has been installed!
+      Complete activation in the Home Assistant UI:
+        1. Go to Settings → Devices & Services
+        2. Click + Add Integration and search for HACS
+        3. Acknowledge the disclaimers
+        4. Authorize with GitHub at https://github.com/login/device

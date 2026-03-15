@@ -1,0 +1,39 @@
+---
+- name: Ensure dashboards directory exists
+  ansible.builtin.file:
+    path: "{{ ha_config_dir }}/dashboards"
+    state: directory
+    mode: "0755"
+
+- name: Deploy BambuLab Lovelace dashboard
+  ansible.builtin.template:
+    src: lovelace.yaml.j2
+    dest: "{{ ha_config_dir }}/dashboards/bambulab.yaml"
+    mode: "0644"
+  notify: restart homeassistant
+
+- name: Check that Lovelace dashboards block exists in configuration
+  ansible.builtin.slurp:
+    src: "{{ ha_config_dir }}/configuration.yaml"
+  register: ha_config_content
+
+- name: Fail if Lovelace dashboards block is missing
+  ansible.builtin.fail:
+    msg: >
+      The Lovelace dashboards block (managed by homeassistant-setup dashboard role)
+      was not found in configuration.yaml. Run the homeassistant-setup playbook first.
+  when: "'ANSIBLE MANAGED \u2014 Lovelace dashboards' not in (ha_config_content.content | b64decode)"
+
+- name: Register BambuLab dashboard in configuration
+  ansible.builtin.blockinfile:
+    path: "{{ ha_config_dir }}/configuration.yaml"
+    marker: "# {mark} ANSIBLE MANAGED \u2014 BambuLab dashboard"
+    insertbefore: "# END ANSIBLE MANAGED \u2014 Lovelace dashboards"
+    block: |2
+          bambulab:
+            mode: yaml
+            filename: dashboards/bambulab.yaml
+            title: BambuLab X1C
+            icon: mdi:printer-3d-nozzle
+            show_in_sidebar: true
+  notify: restart homeassistant

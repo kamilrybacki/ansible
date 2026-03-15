@@ -67,7 +67,14 @@
     - docker
     - homeassistant
 
-# Play 3: Configure monitoring, dashboards, and alerts
+# Play 3: Install HACS (Home Assistant Community Store)
+- name: Install HACS
+  hosts: ha_hosts
+  become: true
+  roles:
+    - hacs
+
+# Play 4: Configure monitoring, dashboards, and alerts
 - name: Configure monitoring and alerts
   hosts: ha_hosts
   become: true

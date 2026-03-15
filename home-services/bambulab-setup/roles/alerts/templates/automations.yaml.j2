@@ -1,0 +1,50 @@
+# BambuLab print event automations — managed by Ansible
+
+- id: bambulab_{{ printer_name }}_print_completed
+  alias: "BambuLab: Print Completed"
+  trigger:
+    - platform: state
+      entity_id: sensor.{{ printer_name }}_print_status
+      to: "finish"
+  action:
+    - service: rest_command.bambulab_webhook_alert
+      data:
+        message: "Print completed on {{ printer_name }}"
+        severity: info
+        source: "bambulab_{{ printer_name }}"
+        timestamp: "{% raw %}{{ now().isoformat() }}{% endraw %}"
+
+- id: bambulab_{{ printer_name }}_print_failed
+  alias: "BambuLab: Print Failed"
+  trigger:
+    - platform: state
+      entity_id: sensor.{{ printer_name }}_print_status
+      to: "failed"
+  action:
+    - service: rest_command.bambulab_webhook_alert
+      data:
+        message: "Print failed on {{ printer_name }}"
+        severity: critical
+        source: "bambulab_{{ printer_name }}"
+        timestamp: "{% raw %}{{ now().isoformat() }}{% endraw %}"
+
+{% for slot in range(1, ams_slots + 1) %}
+- id: bambulab_{{ printer_name }}_filament_runout_slot{{ slot }}
+  alias: "BambuLab: Filament Runout (Slot {{ slot }})"
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.{{ printer_name }}_tray_{{ slot }}_remain
+      below: 1
+  condition:
+    - condition: state
+      entity_id: sensor.{{ printer_name }}_print_status
+      state: "running"
+  action:
+    - service: rest_command.bambulab_webhook_alert
+      data:
+        message: "Filament runout in AMS slot {{ slot }} on {{ printer_name }}"
+        severity: warning
+        source: "bambulab_{{ printer_name }}"
+        timestamp: "{% raw %}{{ now().isoformat() }}{% endraw %}"
+
+{% endfor %}

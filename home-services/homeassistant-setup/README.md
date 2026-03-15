@@ -6,9 +6,10 @@ Ansible playbook to deploy Home Assistant in Docker with monitoring integrations
 
 1. **Installs Docker** on the target host (skips if already present)
 2. **Deploys Home Assistant** container with persistent storage
-3. **Configures monitoring** — system resources, HTTP service health, ping checks, Docker container status
-4. **Sets up a Lovelace dashboard** with gauges and graphs for all monitored resources
-5. **Configures alerting automations** that POST to a webhook (Discord, Slack, n8n, etc.) when services go down or resources spike
+3. **Installs HACS** (Home Assistant Community Store) for community integrations
+4. **Configures monitoring** — system resources, HTTP service health, ping checks, Docker container status
+5. **Sets up a Lovelace dashboard** with gauges and graphs for all monitored resources
+6. **Configures alerting automations** that POST to a webhook (Discord, Slack, n8n, etc.) when services go down or resources spike
 
 ## Usage
 
@@ -32,6 +33,17 @@ The playbook will prompt for:
 | Webhook URL | Alert destination — Discord/Slack/n8n webhook (optional) |
 | Ping hosts | Comma-separated `name:ip` pairs to monitor (optional) |
 | n8n health URL | n8n healthcheck endpoint to monitor (optional) |
+
+## Post-install: HACS Activation
+
+After the playbook completes, activate HACS in the Home Assistant UI:
+
+1. Navigate to **Settings → Devices & Services**
+2. Click **+ Add Integration** and search for **HACS**
+3. Acknowledge the disclaimers
+4. Authorize with GitHub — you'll receive a code to enter at [github.com/login/device](https://github.com/login/device)
+
+HACS will then appear in the HA sidebar and can be used to install community integrations.
 
 ## Monitored service types
 
@@ -76,6 +88,7 @@ Thresholds are configurable in `group_vars/all.yml`.
 |---|---|
 | `docker` | Install Docker engine via official APT repository |
 | `homeassistant` | Deploy HA container with persistent volume |
+| `hacs` | Install HACS into custom_components |
 | `monitoring` | Template `configuration.yaml` with integrations and sensors |
 | `dashboard` | Generate Lovelace YAML dashboard for monitoring |
 | `alerts` | Create HA automations for webhook notifications |
@@ -92,6 +105,7 @@ homeassistant-setup/
 └── roles/
     ├── docker/
     ├── homeassistant/
+    ├── hacs/
     ├── monitoring/
     ├── dashboard/
     └── alerts/

@@ -1,0 +1,55 @@
+---
+- name: Skip alerting if no webhook URL provided
+  ansible.builtin.debug:
+    msg: "No webhook URL provided — skipping BambuLab alerting setup"
+  when: alert_webhook_url | length == 0
+
+- name: Register BambuLab webhook rest_command in configuration
+  ansible.builtin.blockinfile:
+    path: "{{ ha_config_dir }}/configuration.yaml"
+    marker: "# {mark} ANSIBLE MANAGED \u2014 BambuLab webhook"
+    block: |
+      rest_command:
+        bambulab_webhook_alert:
+          url: "{{ alert_webhook_url }}"
+          method: POST
+          headers:
+            Content-Type: application/json
+          payload: >-
+            {"text": "{{ '{{' }} message {{ '}}' }}",
+             "severity": "{{ '{{' }} severity {{ '}}' }}",
+             "source": "{{ '{{' }} source {{ '}}' }}",
+             "timestamp": "{{ '{{' }} timestamp {{ '}}' }}"}
+  when: alert_webhook_url | length > 0
+  notify: restart homeassistant
+
+- name: Read current configuration.yaml
+  ansible.builtin.slurp:
+    src: "{{ ha_config_dir }}/configuration.yaml"
+  register: ha_config_content
+  when: alert_webhook_url | length > 0
+
+- name: Create automations.yaml if not present
+  ansible.builtin.copy:
+    content: "# Home Assistant automations — managed by Ansible\n"
+    dest: "{{ ha_config_dir }}/automations.yaml"
+    force: false
+    mode: "0644"
+  when: alert_webhook_url | length > 0
+
+- name: Ensure automation include directive is in configuration
+  ansible.builtin.blockinfile:
+    path: "{{ ha_config_dir }}/configuration.yaml"
+    marker: "# {mark} ANSIBLE MANAGED \u2014 BambuLab automation include"
+    block: "automation: !include automations.yaml"
+  when:
+    - alert_webhook_url | length > 0
+    - "'automation:' not in (ha_config_content.content | b64decode)"
+
+- name: Append BambuLab automations to automations.yaml
+  ansible.builtin.blockinfile:
+    path: "{{ ha_config_dir }}/automations.yaml"
+    marker: "# {mark} ANSIBLE MANAGED \u2014 BambuLab alerts"
+    block: "{{ lookup('template', 'automations.yaml.j2') }}"
+  when: alert_webhook_url | length > 0
+  notify: restart homeassistant

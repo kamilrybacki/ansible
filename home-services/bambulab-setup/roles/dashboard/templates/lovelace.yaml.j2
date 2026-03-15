@@ -1,0 +1,99 @@
+title: BambuLab X1C
+views:
+  - title: Printer
+    path: printer
+    icon: mdi:printer-3d-nozzle
+    cards:
+
+      # ── Printer Status ─────────────────────────────────────────────────────
+      - type: entities
+        title: Print Status
+        entities:
+          - entity: sensor.{{ printer_name }}_print_status
+            name: Status
+            icon: mdi:printer-3d
+
+          - entity: sensor.{{ printer_name }}_current_stage
+            name: Stage
+            icon: mdi:progress-clock
+
+          - entity: sensor.{{ printer_name }}_remaining_time
+            name: Remaining Time
+            icon: mdi:timer-outline
+
+          - entity: sensor.{{ printer_name }}_current_layer
+            name: Current Layer
+            icon: mdi:layers
+
+          - entity: sensor.{{ printer_name }}_total_layer_count
+            name: Total Layers
+            icon: mdi:layers-triple
+
+      - type: gauge
+        entity: sensor.{{ printer_name }}_print_progress
+        name: Print Progress
+        min: 0
+        max: 100
+        severity:
+          green: 0
+          yellow: 50
+          red: 90
+
+      # ── Temperatures ────────────────────────────────────────────────────────
+      - type: glance
+        title: Temperatures
+        entities:
+          - entity: sensor.{{ printer_name }}_nozzle_temperature
+            name: Nozzle
+
+          - entity: sensor.{{ printer_name }}_bed_temperature
+            name: Bed
+
+          - entity: sensor.{{ printer_name }}_chamber_temperature
+            name: Chamber
+
+      # ── Camera ──────────────────────────────────────────────────────────────
+      - type: picture-entity
+        entity: camera.{{ printer_name }}_camera
+        name: Chamber Camera
+        show_state: false
+        show_name: true
+
+      # ── AMS Filament ────────────────────────────────────────────────────────
+      - type: entities
+        title: AMS Filament
+        entities:
+{% for slot in range(1, ams_slots + 1) %}
+          - entity: sensor.{{ printer_name }}_tray_{{ slot }}_type
+            name: "Slot {{ slot }} — Type"
+            icon: mdi:printer-3d-nozzle-outline
+
+          - entity: sensor.{{ printer_name }}_tray_{{ slot }}_color
+            name: "Slot {{ slot }} — Color"
+            icon: mdi:palette
+
+{% endfor %}
+
+{% if ams_slots > 0 %}
+      - type: gauge
+        entity: sensor.{{ printer_name }}_humidity_index
+        name: AMS Humidity
+        min: 0
+        max: 5
+        severity:
+          green: 0
+          yellow: 3
+          red: 4
+{% endif %}
+
+{% for slot in range(1, ams_slots + 1) %}
+      - type: gauge
+        entity: sensor.{{ printer_name }}_tray_{{ slot }}_remain
+        name: "Slot {{ slot }} — Remaining %"
+        min: 0
+        max: 100
+        severity:
+          green: 20
+          yellow: 10
+          red: 0
+{% endfor %}

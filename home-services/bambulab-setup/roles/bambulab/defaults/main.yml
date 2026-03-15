@@ -1,0 +1,4 @@
+---
+ha_config_dir: /opt/homeassistant/config
+ha_container_name: homeassistant
+bambulab_repo: greghesp/ha-bambulab

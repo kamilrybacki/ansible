@@ -1,0 +1,7 @@
+---
+ha_container_name: homeassistant
+ha_config_dir: /opt/homeassistant/config
+ha_port: 8123
+printer_name: x1c
+bambulab_repo: greghesp/ha-bambulab
+ams_slots: 4  # X1C AMS has 4 tray slots; adjust for AMS Lite (2) or no AMS (0)

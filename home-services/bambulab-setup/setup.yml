@@ -1,0 +1,74 @@
+---
+# Play 1: Gather connection details and build dynamic inventory
+- name: Gather connection details
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_prompt:
+    - name: ha_host_ip
+      prompt: "IP or hostname of the Home Assistant host"
+      private: false
+
+    - name: ha_ssh_user
+      prompt: "SSH user for the Home Assistant host"
+      private: false
+
+    - name: ha_port_input
+      prompt: "Home Assistant port"
+      default: "8123"
+      private: false
+
+    - name: webhook_url
+      prompt: "Webhook URL for print alerts (Discord/Slack/n8n — leave blank to skip)"
+      default: ""
+      private: true
+
+    - name: printer_name_input
+      prompt: "Printer name (used as entity ID prefix, e.g. x1c)"
+      default: "x1c"
+      private: false
+
+  tasks:
+    - name: Add HA host to dynamic inventory
+      ansible.builtin.add_host:
+        name: "{{ ha_host_ip }}"
+        groups: ha_hosts
+        ansible_user: "{{ ha_ssh_user }}"
+        ansible_python_interpreter: /usr/bin/python3
+        ha_port: "{{ ha_port_input }}"
+        alert_webhook_url: "{{ webhook_url }}"
+        printer_name: "{{ printer_name_input }}"
+
+# Play 2: Install ha-bambulab integration files
+- name: Install ha-bambulab integration
+  hosts: ha_hosts
+  become: true
+  roles:
+    - bambulab
+
+# Play 3: Deploy BambuLab dashboard and print alerts
+- name: Deploy dashboard and alerts
+  hosts: ha_hosts
+  become: true
+  handlers:
+    - name: restart homeassistant
+      community.docker.docker_container:
+        name: "{{ ha_container_name }}"
+        state: started
+        restart: true
+      listen: "restart homeassistant"
+
+    - name: wait for homeassistant
+      ansible.builtin.uri:
+        url: "http://localhost:{{ ha_port }}"
+        method: GET
+        status_code: 200
+      register: ha_restart_wait
+      until: ha_restart_wait.status == 200
+      retries: 30
+      delay: 10
+      listen: "restart homeassistant"
+
+  roles:
+    - dashboard
+    - alerts
