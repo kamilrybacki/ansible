@@ -1,4 +1,10 @@
 ---
+- name: Assert smartd email is configured
+  ansible.builtin.assert:
+    that: smartd_alert_email | length > 0
+    fail_msg: "smartd_alert_email must be set in group_vars or extra-vars"
+  when: smartd_alert_email is defined
+
 - name: Install monitoring packages
   ansible.builtin.apt:
     name: "{{ monitoring_packages }}"

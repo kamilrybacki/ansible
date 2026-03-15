@@ -10,28 +10,24 @@
 }
 
 # Authelia portal
-auth.{{ domain }} {
+{{ subdomain_auth }}.{{ domain }} {
 	reverse_proxy {{ authelia_container_name }}:9091
 }
 
 # Homepage dashboard
-home.{{ domain }} {
+{{ subdomain_home }}.{{ domain }} {
 	import authelia
 	reverse_proxy {{ homepage_container_name }}:3000
 }
 
 # Cockpit system management + terminal
-cockpit.{{ domain }} {
+{{ subdomain_cockpit }}.{{ domain }} {
 	import authelia
-	reverse_proxy localhost:{{ cockpit_port }} {
-		transport http {
-			tls_insecure_skip_verify
-		}
-	}
+	reverse_proxy localhost:{{ cockpit_port }}
 }
 
 # WireGuard admin UI
-wg.{{ domain }} {
+{{ subdomain_wireguard }}.{{ domain }} {
 	import authelia
 	reverse_proxy {{ wireguard_container_name }}:51821
 }

@@ -57,6 +57,7 @@
         n8n_owner_password: "{{ n8n_owner_password }}"
         n8n_owner_first_name: "{{ n8n_owner_first_name }}"
         n8n_owner_last_name: "{{ n8n_owner_last_name }}"
+      no_log: true
 
     - name: Add Claude Code client to dynamic inventory (remote)
       ansible.builtin.add_host:
@@ -67,6 +68,7 @@
         n8n_host_ip: "{{ n8n_host_ip }}"
         n8n_port: "{{ n8n_port }}"
         n8n_mcp_token: "{{ n8n_mcp_token }}"
+      no_log: true
       when: claude_host_ip != 'localhost'
 
     - name: Add Claude Code client to dynamic inventory (local)
@@ -78,6 +80,7 @@
         n8n_host_ip: "{{ n8n_host_ip }}"
         n8n_port: "{{ n8n_port }}"
         n8n_mcp_token: "{{ n8n_mcp_token }}"
+      no_log: true
       when: claude_host_ip == 'localhost'
 
 # Play 2: Install Docker, deploy n8n, and create the owner account

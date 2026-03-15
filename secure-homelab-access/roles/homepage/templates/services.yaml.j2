@@ -2,15 +2,15 @@
 - Infrastructure:
     - Cockpit:
         icon: cockpit.png
-        href: "https://cockpit.{{ domain }}"
+        href: "https://{{ subdomain_cockpit }}.{{ domain }}"
         description: "System management & terminal"
     - WireGuard:
         icon: wireguard.png
-        href: "https://wg.{{ domain }}"
+        href: "https://{{ subdomain_wireguard }}.{{ domain }}"
         description: "VPN peer management"
     - Authelia:
         icon: authelia.png
-        href: "https://auth.{{ domain }}"
+        href: "https://{{ subdomain_auth }}.{{ domain }}"
         description: "Authentication portal"
 
 - Applications:

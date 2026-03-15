@@ -19,10 +19,10 @@ authentication_backend:
   file:
     path: "/config/users_database.yml"
     password:
-      algorithm: "argon2id"
+      algorithm: "bcrypt"
 
 access_control:
-  default_policy: "one_factor"
+  default_policy: "deny"
   rules:
     - domain: "*.{{ domain }}"
       policy: "two_factor"
@@ -32,12 +32,16 @@ session:
   secret: "{{ authelia_session_secret }}"
   cookies:
     - domain: "{{ domain }}"
-      authelia_url: "https://auth.{{ domain }}"
+      authelia_url: "https://{{ subdomain_auth }}.{{ domain }}"
 
 storage:
   encryption_key: "{{ authelia_storage_encryption_key }}"
   local:
     path: "/config/db.sqlite3"
+
+identity_validation:
+  reset_password:
+    jwt_secret: "{{ authelia_jwt_secret }}"
 
 notifier:
   filesystem:
@@ -46,4 +50,4 @@ notifier:
 regulation:
   max_retries: 3
   find_time: "2m"
-  ban_time: "5m"
+  ban_time: "1h"

@@ -60,7 +60,7 @@
       private: false
 
     - name: prompt_authelia_password
-      prompt: "[7/8] Authelia admin password (will be hashed with argon2id)"
+      prompt: "[7/8] Authelia admin password (will be hashed with bcrypt)"
       private: true
       confirm: true
 
@@ -78,8 +78,9 @@
         wireguard_password: "{{ prompt_wireguard_password }}"
         authelia_default_user: "{{ prompt_authelia_user }}"
         authelia_default_email: "{{ prompt_authelia_email }}"
+      no_log: true
 
-    - name: Generate Authelia password hash (argon2id)
+    - name: Generate Authelia password hash (bcrypt)
       ansible.builtin.command:
         cmd: "openssl rand -hex 32"
       register: _authelia_salt
@@ -88,7 +89,7 @@
 
     - name: Set Authelia password hash
       ansible.builtin.set_fact:
-        authelia_default_password_hash: "{{ prompt_authelia_password | password_hash('sha512') }}"
+        authelia_default_password_hash: "{{ prompt_authelia_password | password_hash('bcrypt') }}"
       no_log: true
 
     - name: Auto-generate secrets
@@ -120,10 +121,10 @@
             Data Dir:     {{ docker_data_dir }}
 
             Services:
-              auth.{{ domain }}     → Authelia 2FA portal
-              home.{{ domain }}     → Homepage dashboard
-              cockpit.{{ domain }}  → System management + terminal
-              wg.{{ domain }}       → WireGuard peer management
+              {{ subdomain_auth }}.{{ domain }}     → Authelia 2FA portal
+              {{ subdomain_home }}.{{ domain }}     → Homepage dashboard
+              {{ subdomain_cockpit }}.{{ domain }}  → System management + terminal
+              {{ subdomain_wireguard }}.{{ domain }}       → WireGuard peer management
 
             Auth user:    {{ authelia_default_user }}
             Secrets:      auto-generated (jwt, session, encryption key)
@@ -171,10 +172,10 @@
              → Create a VPN peer → Download config → Import into WireGuard client
 
           2. Once connected via VPN, access your services:
-             https://auth.{{ domain }}    → Set up 2FA (first login)
-             https://home.{{ domain }}    → Dashboard
-             https://cockpit.{{ domain }} → Terminal & system management
-             https://wg.{{ domain }}      → VPN management
+             https://{{ subdomain_auth }}.{{ domain }}    → Set up 2FA (first login)
+             https://{{ subdomain_home }}.{{ domain }}    → Dashboard
+             https://{{ subdomain_cockpit }}.{{ domain }} → Terminal & system management
+             https://{{ subdomain_wireguard }}.{{ domain }}      → VPN management
 
           3. DNS: Point *.{{ domain }} → {{ vpn_address }}
              (via Pi-hole, /etc/hosts, or your DNS provider)

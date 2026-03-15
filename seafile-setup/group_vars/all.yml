@@ -1,6 +1,6 @@
 ---
 seafile_container_name: seafile
-seafile_image: seafileltd/seafile-mc:latest
+seafile_image: seafileltd/seafile-mc:11.0
 seafile_port: 8080
 seafile_data_path: ""
 

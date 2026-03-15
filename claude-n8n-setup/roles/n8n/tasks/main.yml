@@ -16,7 +16,7 @@
     state: started
     restart_policy: "{{ n8n_restart_policy }}"
     published_ports:
-      - "{{ n8n_port }}:5678"
+      - "127.0.0.1:{{ n8n_port }}:5678"
     volumes:
       - "{{ n8n_volume_name }}:/home/node/.n8n"
 
@@ -41,6 +41,7 @@
       lastName: "{{ n8n_owner_last_name }}"
     status_code: [200, 400]
   register: owner_setup_result
+  no_log: true
 
 - name: Report owner account creation result
   ansible.builtin.debug:

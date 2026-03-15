@@ -41,7 +41,14 @@ cockpit_allow_unencrypted: true  # Safe: behind Caddy HTTPS + WireGuard VPN
 homepage_container_name: "homepage"
 homepage_data_dir: "{{ docker_data_dir }}/homepage"
 
+# -- Subdomain Prefixes -------------------------------------------------------
+# Customize the subdomain used for each service (e.g. auth.example.com)
+subdomain_auth: "auth"
+subdomain_home: "home"
+subdomain_cockpit: "cockpit"
+subdomain_wireguard: "wg"
+
 # -- Fail2ban ------------------------------------------------------------------
 fail2ban_maxretry: 5
-fail2ban_bantime: 3600
+fail2ban_bantime: 86400
 fail2ban_findtime: 600

@@ -21,7 +21,7 @@
     - name: webhook_url
       prompt: "Webhook URL for alerts (Discord/Slack/n8n — leave blank to skip)"
       default: ""
-      private: false
+      private: true
 
     - name: ping_hosts
       prompt: "Comma-separated list of hosts to ping-monitor (e.g. router:192.168.1.1,nas:192.168.1.50 — leave blank to skip)"

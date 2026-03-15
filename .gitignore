@@ -1,2 +1,10 @@
 docs/superpowers/
 .worktrees/
+*.retry
+.vault_pass
+vault_pass.txt
+*.vault_password
+group_vars/*/vault.yml
+host_vars/*/vault.yml
+.env
+*.env.local

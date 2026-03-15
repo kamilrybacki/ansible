@@ -1,2 +1,2 @@
 ---
-wireguard_image: "ghcr.io/wg-easy/wg-easy:latest"
+wireguard_image: "ghcr.io/wg-easy/wg-easy:14"

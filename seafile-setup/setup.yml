@@ -27,6 +27,7 @@
         seafile_admin_password: "{{ seafile_admin_password }}"
         seafile_db_root_password: "{{ seafile_db_root_password }}"
         caddy_domain: "{{ caddy_domain }}"
+      no_log: true
 
 - name: Select storage volume and deploy Seafile
   hosts: local
