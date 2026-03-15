@@ -68,6 +68,7 @@ jobs:
         working-directory: ${{ matrix.role_path }}
         env:
           SCENARIO: ${{ matrix.scenario }}
+          ANSIBLE_CONDITIONAL_BARE_VARS: "false"
         run: molecule test -s "$SCENARIO"
 
   test-roles-qemu:
@@ -108,4 +109,5 @@ jobs:
         working-directory: ${{ matrix.role_path }}
         env:
           SCENARIO: ${{ matrix.scenario }}
+          ANSIBLE_CONDITIONAL_BARE_VARS: "false"
         run: molecule test -s "$SCENARIO"
