@@ -5,4 +5,4 @@
   vars_files:
     - vars/test-vars.yml
   roles:
-    - role: cliproxyapi
+    - role: litellm

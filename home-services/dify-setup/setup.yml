@@ -33,19 +33,39 @@
       default: "weaviate"
       private: false
 
-    - name: enable_cliproxyapi
+    - name: enable_litellm
       prompt: |
 
-        Deploy CLIProxyAPI? (OpenAI-compatible proxy for Claude Max subscriptions)
-          yes – Deploy alongside Dify (requires Claude Max OAuth login after deploy)
-          no  – Skip, use standard API keys in Dify instead
-        Enable CLIProxyAPI (yes/no)
+        Deploy LiteLLM proxy? (Pools free-tier LLM providers with automatic failover)
+          yes – Deploy alongside Dify (requires at least one provider API key)
+          no  – Skip, configure model providers manually in Dify
+        Enable LiteLLM (yes/no)
       default: "yes"
       private: false
 
-    - name: cliproxyapi_api_key
-      prompt: "API key for CLIProxyAPI (clients like Dify will use this to authenticate)"
-      default: "dify-cliproxy-key"
+    - name: litellm_key
+      prompt: "Master key for LiteLLM (Dify authenticates with this)"
+      default: "change-me-litellm-key"
+      private: true
+
+    - name: groq_api_key
+      prompt: "Groq API key (free at console.groq.com, leave empty to skip)"
+      default: ""
+      private: true
+
+    - name: gemini_api_key
+      prompt: "Google Gemini API key (free at aistudio.google.com, leave empty to skip)"
+      default: ""
+      private: true
+
+    - name: openrouter_api_key
+      prompt: "OpenRouter API key (free at openrouter.ai, leave empty to skip)"
+      default: ""
+      private: true
+
+    - name: cerebras_api_key
+      prompt: "Cerebras API key (free at cloud.cerebras.ai, leave empty to skip)"
+      default: ""
       private: true
 
     - name: dify_init_password
@@ -63,8 +83,12 @@
         ansible_python_interpreter: /usr/bin/python3
         dify_vector_store: "{{ vector_store }}"
         dify_init_password: "{{ dify_init_password }}"
-        cliproxyapi_enabled: "{{ enable_cliproxyapi | default('yes') | lower in ['yes', 'true', '1'] }}"
-        cliproxyapi_api_keys: ["{{ cliproxyapi_api_key | default('dify-cliproxy-key') }}"]
+        litellm_enabled: "{{ enable_litellm | default('yes') | lower in ['yes', 'true', '1'] }}"
+        litellm_master_key: "{{ litellm_key | default('change-me-litellm-key') }}"
+        litellm_groq_api_key: "{{ groq_api_key | default('') }}"
+        litellm_gemini_api_key: "{{ gemini_api_key | default('') }}"
+        litellm_openrouter_api_key: "{{ openrouter_api_key | default('') }}"
+        litellm_cerebras_api_key: "{{ cerebras_api_key | default('') }}"
       when: target_host != 'localhost'
 
     - name: Add target to dynamic inventory (local)
@@ -75,8 +99,12 @@
         ansible_python_interpreter: /usr/bin/python3
         dify_vector_store: "{{ vector_store }}"
         dify_init_password: "{{ dify_init_password }}"
-        cliproxyapi_enabled: "{{ enable_cliproxyapi | default('yes') | lower in ['yes', 'true', '1'] }}"
-        cliproxyapi_api_keys: ["{{ cliproxyapi_api_key | default('dify-cliproxy-key') }}"]
+        litellm_enabled: "{{ enable_litellm | default('yes') | lower in ['yes', 'true', '1'] }}"
+        litellm_master_key: "{{ litellm_key | default('change-me-litellm-key') }}"
+        litellm_groq_api_key: "{{ groq_api_key | default('') }}"
+        litellm_gemini_api_key: "{{ gemini_api_key | default('') }}"
+        litellm_openrouter_api_key: "{{ openrouter_api_key | default('') }}"
+        litellm_cerebras_api_key: "{{ cerebras_api_key | default('') }}"
       when: target_host == 'localhost'
 
 # Play 2: Provision Dify
@@ -86,5 +114,5 @@
   become: true
   roles:
     - prerequisites
-    - cliproxyapi
+    - litellm
     - dify
