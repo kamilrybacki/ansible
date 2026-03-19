@@ -84,16 +84,16 @@
       First launch:
         1. Open the URL above in your browser.
         2. Create your admin account.
-{% if litellm_enabled | default(false) %}
+      {% if litellm_enabled | default(false) %}
         3. Go to Settings > Model Providers > OpenAI-API-compatible:
              API endpoint : http://{{ inventory_hostname }}:{{ litellm_port | default(4000) }}/v1
              API key      : {{ litellm_master_key | default('change-me-litellm-key') }}
              Add LLM model name      : default-chat
              Add embedding model name : default-embedding
            (See LiteLLM output above for active providers)
-{% else %}
+      {% else %}
         3. Go to Settings > Model Providers to add your LLM API keys.
-{% endif %}
+      {% endif %}
         4. Create a Knowledge Base under the Knowledge tab – upload docs or connect data sources.
         5. Build an agent/workflow that references your Knowledge Base.
 
