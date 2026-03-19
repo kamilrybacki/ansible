@@ -54,6 +54,15 @@
       private: false
 
   tasks:
+    - name: Validate host and user are not empty
+      ansible.builtin.fail:
+        msg: >-
+          Prompt [{{ item.num }}] cannot be empty — please re-run and enter a value.
+      when: not item.value
+      loop:
+        - { num: "1/11", value: "{{ target_host_ip }}" }
+        - { num: "2/11", value: "{{ target_ssh_user }}" }
+
     - name: Add target host to dynamic inventory
       ansible.builtin.add_host:
         name: "{{ target_host_ip }}"
@@ -125,6 +134,19 @@
       confirm: true
 
   pre_tasks:
+    - name: Validate required prompts are not empty
+      ansible.builtin.fail:
+        msg: >-
+          Prompt [{{ item.num }}] cannot be empty — please re-run and enter a value.
+      when: not item.value
+      loop:
+        - { num: "3/11",  value: "{{ prompt_public_ip }}" }
+        - { num: "4/11",  value: "{{ prompt_domain }}" }
+        - { num: "6/11",  value: "{{ prompt_caddy_email }}" }
+        - { num: "7/11",  value: "{{ prompt_wireguard_password }}" }
+        - { num: "9/11",  value: "{{ prompt_authelia_password }}" }
+        - { num: "11/11", value: "{{ prompt_pihole_password }}" }
+
     - name: Set prompted values as facts
       ansible.builtin.set_fact:
         public_ip: "{{ prompt_public_ip }}"
