@@ -1,0 +1,14 @@
+---
+cliproxyapi_version: "latest"
+cliproxyapi_install_dir: "/opt/cliproxyapi"
+cliproxyapi_image: "eceasy/cli-proxy-api:latest"
+cliproxyapi_port: 8317
+cliproxyapi_api_keys:
+  - "test-api-key"
+cliproxyapi_management_enabled: false
+cliproxyapi_management_secret: ""
+cliproxyapi_claude_enabled: true
+cliproxyapi_request_retry: 3
+cliproxyapi_debug: true
+cliproxyapi_log_to_file: false
+cliproxyapi_enabled: true

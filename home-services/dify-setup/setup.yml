@@ -33,6 +33,21 @@
       default: "weaviate"
       private: false
 
+    - name: enable_cliproxyapi
+      prompt: |
+
+        Deploy CLIProxyAPI? (OpenAI-compatible proxy for Claude Max subscriptions)
+          yes – Deploy alongside Dify (requires Claude Max OAuth login after deploy)
+          no  – Skip, use standard API keys in Dify instead
+        Enable CLIProxyAPI (yes/no)
+      default: "yes"
+      private: false
+
+    - name: cliproxyapi_api_key
+      prompt: "API key for CLIProxyAPI (clients like Dify will use this to authenticate)"
+      default: "dify-cliproxy-key"
+      private: true
+
     - name: dify_init_password
       prompt: "Dify admin password (max 30 chars, leave empty for auto)"
       default: ""
@@ -48,6 +63,8 @@
         ansible_python_interpreter: /usr/bin/python3
         dify_vector_store: "{{ vector_store }}"
         dify_init_password: "{{ dify_init_password }}"
+        cliproxyapi_enabled: "{{ enable_cliproxyapi | default('yes') | lower in ['yes', 'true', '1'] }}"
+        cliproxyapi_api_keys: ["{{ cliproxyapi_api_key | default('dify-cliproxy-key') }}"]
       when: target_host != 'localhost'
 
     - name: Add target to dynamic inventory (local)
@@ -58,6 +75,8 @@
         ansible_python_interpreter: /usr/bin/python3
         dify_vector_store: "{{ vector_store }}"
         dify_init_password: "{{ dify_init_password }}"
+        cliproxyapi_enabled: "{{ enable_cliproxyapi | default('yes') | lower in ['yes', 'true', '1'] }}"
+        cliproxyapi_api_keys: ["{{ cliproxyapi_api_key | default('dify-cliproxy-key') }}"]
       when: target_host == 'localhost'
 
 # Play 2: Provision Dify
@@ -67,4 +86,5 @@
   become: true
   roles:
     - prerequisites
+    - cliproxyapi
     - dify

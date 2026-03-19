@@ -1,0 +1,33 @@
+# CLIProxyAPI configuration – managed by Ansible
+# -------------------------------------------------
+
+host: ""
+port: 8317
+
+auth-dir: "/root/.cli-proxy-api"
+
+api-keys:
+{% for key in cliproxyapi_api_keys %}
+  - "{{ key }}"
+{% endfor %}
+
+debug: {{ cliproxyapi_debug | lower }}
+logging-to-file: {{ cliproxyapi_log_to_file | lower }}
+
+request-retry: {{ cliproxyapi_request_retry }}
+
+remote-management:
+  allow-remote: {{ cliproxyapi_management_enabled | lower }}
+{% if cliproxyapi_management_secret | default('') | length > 0 %}
+  secret-key: "{{ cliproxyapi_management_secret }}"
+{% else %}
+  secret-key: ""
+{% endif %}
+  disable-control-panel: {{ (not cliproxyapi_management_enabled) | lower }}
+
+routing:
+  strategy: "round-robin"
+
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true

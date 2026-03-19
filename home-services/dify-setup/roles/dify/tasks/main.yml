@@ -84,7 +84,15 @@
       First launch:
         1. Open the URL above in your browser.
         2. Create your admin account.
+{% if cliproxyapi_enabled | default(false) %}
+        3. Go to Settings > Model Providers > OpenAI-API-compatible:
+             API endpoint : http://{{ inventory_hostname }}:{{ cliproxyapi_port | default(8317) }}/v1
+             API key      : {{ cliproxyapi_api_keys[0] | default('dify-cliproxy-key') }}
+             Models       : claude-sonnet-4-20250514, claude-opus-4-20250918
+           (Make sure you have completed the Claude OAuth login – see CLIProxyAPI output above)
+{% else %}
         3. Go to Settings > Model Providers to add your LLM API keys.
+{% endif %}
         4. Create a Knowledge Base under the Knowledge tab – upload docs or connect data sources.
         5. Build an agent/workflow that references your Knowledge Base.
 

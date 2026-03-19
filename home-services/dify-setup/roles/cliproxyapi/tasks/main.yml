@@ -1,0 +1,62 @@
+---
+- name: Skip CLIProxyAPI deployment
+  ansible.builtin.debug:
+    msg: "CLIProxyAPI is disabled (cliproxyapi_enabled=false), skipping."
+  when: not cliproxyapi_enabled
+
+- name: Deploy CLIProxyAPI
+  when: cliproxyapi_enabled
+  block:
+    - name: Create CLIProxyAPI install directory
+      ansible.builtin.file:
+        path: "{{ cliproxyapi_install_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Write CLIProxyAPI config.yaml
+      ansible.builtin.template:
+        src: config.yaml.j2
+        dest: "{{ cliproxyapi_install_dir }}/config.yaml"
+        mode: "0600"
+      notify: Restart cliproxyapi
+
+    - name: Write CLIProxyAPI docker-compose.yml
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ cliproxyapi_install_dir }}/docker-compose.yml"
+        mode: "0644"
+      notify: Restart cliproxyapi
+
+    - name: Start CLIProxyAPI with Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ cliproxyapi_install_dir }}"
+        state: present
+
+    - name: Wait for CLIProxyAPI to become reachable
+      ansible.builtin.uri:
+        url: "http://localhost:{{ cliproxyapi_port }}/v1/models"
+        status_code: [200, 401]
+      register: cliproxyapi_health
+      until: cliproxyapi_health is not failed
+      retries: 12
+      delay: 5
+
+    - name: Display CLIProxyAPI access information
+      ansible.builtin.debug:
+        msg: |
+          CLIProxyAPI is running!
+
+          OpenAI-compatible endpoint : http://{{ inventory_hostname }}:{{ cliproxyapi_port }}/v1
+          Config file                : {{ cliproxyapi_install_dir }}/config.yaml
+
+          IMPORTANT – Complete the Claude OAuth login:
+            1. On the target machine, run:
+                 docker exec -it cliproxyapi /CLIProxyAPI/cliproxyapi --claude-login --no-browser
+            2. Open the URL it prints in your browser and log in with your Claude Max account.
+            3. The OAuth token is saved inside the container volume.
+
+          To use in Dify:
+            1. Go to Settings > Model Providers > OpenAI-API-compatible
+            2. Set API endpoint to: http://{{ inventory_hostname }}:{{ cliproxyapi_port }}/v1
+            3. Set API key to: {{ cliproxyapi_api_keys[0] }}
+            4. Add models: claude-sonnet-4-20250514, claude-opus-4-20250918, etc.
