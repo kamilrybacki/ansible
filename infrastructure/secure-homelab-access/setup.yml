@@ -253,17 +253,19 @@
         firewall_allowed_tcp_ports:
           - "{{ ssh_port }}"
           - "53"
+          - "{{ wireguard_web_port }}"
         firewall_allowed_udp_ports:
           - "{{ wireguard_port }}"
           - "53"
 
     - name: Display deployment summary
       ansible.builtin.debug:
-        msg: |
+        msg: "{{ _summary.split('\n') }}"
+      vars:
+        _summary: |
           ══════════════════════════════════════════════
             Deployment Plan
           ══════════════════════════════════════════════
-
             Public IP:    {{ public_ip }}
             Domain:       {{ domain }}
             SSH Port:     {{ ssh_port }}
@@ -275,8 +277,8 @@
               {{ subdomain_auth }}.{{ domain }}     → Authelia 2FA portal
               {{ subdomain_home }}.{{ domain }}     → Homepage dashboard
               {{ subdomain_cockpit }}.{{ domain }}  → System management + terminal
-              {{ subdomain_wireguard }}.{{ domain }}       → WireGuard peer management
-              {{ subdomain_pihole }}.{{ domain }}     → Pi-hole DNS dashboard
+              {{ subdomain_wireguard }}.{{ domain }} → WireGuard peer management
+              {{ subdomain_pihole }}.{{ domain }}   → Pi-hole DNS dashboard
 
             Auth user:    {{ authelia_default_user }}
             Secrets:      auto-generated (jwt, session, encryption key)
@@ -317,21 +319,23 @@
   post_tasks:
     - name: Deployment complete
       ansible.builtin.debug:
-        msg: |
+        msg: "{{ _done.split('\n') }}"
+      vars:
+        _done: |
           ══════════════════════════════════════════════
             Deployment Complete!
           ══════════════════════════════════════════════
 
-          1. Connect to WireGuard:
-             Open https://{{ public_ip }}:{{ wireguard_web_port }}
-             → Create a VPN peer → Download config → Import into WireGuard client
+          1. Bootstrap WireGuard (before VPN is active):
+             http://{{ public_ip }}:{{ wireguard_web_port }}
+             → Log in → Add peer → Download config → Connect
 
-          2. Once connected via VPN, access your services:
-             https://{{ subdomain_auth }}.{{ domain }}    → Set up 2FA (first login)
+          2. Once connected via VPN, access services at:
+             https://{{ subdomain_auth }}.{{ domain }}    → Authelia 2FA (set up first)
              https://{{ subdomain_home }}.{{ domain }}    → Dashboard
-             https://{{ subdomain_cockpit }}.{{ domain }} → Terminal & system management
-             https://{{ subdomain_wireguard }}.{{ domain }}      → VPN management
-             https://{{ subdomain_pihole }}.{{ domain }} → DNS ad-blocking dashboard
+             https://{{ subdomain_cockpit }}.{{ domain }} → Terminal & system mgmt
+             https://{{ subdomain_wireguard }}.{{ domain }} → VPN peer management
+             https://{{ subdomain_pihole }}.{{ domain }}  → DNS / ad-blocking
 
           3. DNS: Point *.{{ domain }} → {{ vpn_address }}
              (via Pi-hole, /etc/hosts, or your DNS provider)
