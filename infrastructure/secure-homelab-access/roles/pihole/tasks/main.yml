@@ -42,6 +42,7 @@
     ports:
       - "53:53/tcp"
       - "53:53/udp"
+      - "{{ pihole_web_port }}:80/tcp"
     networks:
       - name: "{{ docker_network_name }}"
         ipv4_address: "{{ pihole_dns_ip }}"
