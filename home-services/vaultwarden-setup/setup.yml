@@ -45,11 +45,67 @@
       private: false
 
     - name: vaultwarden_admin_token
-      prompt: "[3/3] Admin token for the /admin panel"
+      prompt: "[3/7] Admin token for the /admin panel"
       private: true
       confirm: true
 
+    - name: smtp_provider
+      prompt: |-
+        [4/7] SMTP provider (leave blank to skip email setup)
+               gmail    → smtp.gmail.com:587       (use an App Password)
+               outlook  → smtp-mail.outlook.com:587
+               zoho     → smtp.zoho.com:587
+               fastmail → smtp.fastmail.com:587
+               sendgrid → smtp.sendgrid.net:587     (username = apikey)
+               mailgun  → smtp.mailgun.org:587
+               ses      → email-smtp.us-east-1.amazonaws.com:587
+               custom   → enter host/port manually
+      default: ""
+      private: false
+
+    - name: smtp_from
+      prompt: "[5/7] From address (e.g. vault@gmail.com, leave blank to skip)"
+      default: ""
+      private: false
+
+    - name: smtp_username
+      prompt: "[6/7] SMTP username"
+      default: ""
+      private: false
+
+    - name: smtp_password
+      prompt: "[7/7] SMTP password / app password / API key"
+      default: ""
+      private: true
+
+    - name: smtp_host_custom
+      prompt: "SMTP host (only for 'custom' provider)"
+      default: ""
+      private: false
+
+    - name: smtp_port_custom
+      prompt: "SMTP port (only for 'custom' provider)"
+      default: "587"
+      private: false
+
   tasks:
+    - name: Resolve SMTP settings from provider
+      ansible.builtin.set_fact:
+        _smtp_host: "{{ _providers[smtp_provider | lower]['host'] | default(smtp_host_custom) }}"
+        _smtp_port: "{{ _providers[smtp_provider | lower]['port'] | default(smtp_port_custom) }}"
+        _smtp_security: "{{ _providers[smtp_provider | lower]['security'] | default('starttls') }}"
+      vars:
+        _providers:
+          gmail:    { host: smtp.gmail.com,                              port: "587", security: starttls }
+          outlook:  { host: smtp-mail.outlook.com,                      port: "587", security: starttls }
+          zoho:     { host: smtp.zoho.com,                              port: "587", security: starttls }
+          fastmail: { host: smtp.fastmail.com,                          port: "587", security: starttls }
+          sendgrid: { host: smtp.sendgrid.net,                          port: "587", security: starttls }
+          mailgun:  { host: smtp.mailgun.org,                           port: "587", security: starttls }
+          ses:      { host: email-smtp.us-east-1.amazonaws.com,         port: "587", security: starttls }
+          custom:   { host: "{{ smtp_host_custom }}", port: "{{ smtp_port_custom }}", security: starttls }
+      when: smtp_provider | length > 0
+
     - name: Add target host to dynamic inventory
       ansible.builtin.add_host:
         name: "{{ target_host_ip }}"
@@ -64,6 +120,12 @@
             if hostvars['localhost']['_homelab_vars_stat'].stat.exists
             else ''
           }}
+        vaultwarden_smtp_host: "{{ hostvars['localhost']['_smtp_host'] | default('') }}"
+        vaultwarden_smtp_port: "{{ hostvars['localhost']['_smtp_port'] | default('') }}"
+        vaultwarden_smtp_security: "{{ hostvars['localhost']['_smtp_security'] | default('') }}"
+        vaultwarden_smtp_from: "{{ smtp_from }}"
+        vaultwarden_smtp_username: "{{ smtp_username }}"
+        vaultwarden_smtp_password: "{{ smtp_password }}"
       no_log: true
 
 - name: Install Docker and deploy Vaultwarden
