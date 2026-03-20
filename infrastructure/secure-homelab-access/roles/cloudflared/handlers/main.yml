@@ -1,0 +1,7 @@
+# roles/cloudflared/handlers/main.yml
+---
+- name: restart cloudflared
+  ansible.builtin.systemd:
+    name: "{{ cloudflared_service_name }}"
+    state: restarted
+    daemon_reload: true

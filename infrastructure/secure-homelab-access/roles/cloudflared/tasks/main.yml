@@ -1,0 +1,152 @@
+# roles/cloudflared/tasks/main.yml
+---
+- name: Detect system architecture
+  ansible.builtin.set_fact:
+    _cf_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Check if cloudflared binary already installed
+  ansible.builtin.stat:
+    path: "{{ cloudflared_install_dir }}/cloudflared"
+  register: _cf_binary
+
+- name: Download cloudflared binary
+  ansible.builtin.get_url:
+    url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-{{ _cf_arch }}"
+    dest: "{{ cloudflared_install_dir }}/cloudflared"
+    mode: "0755"
+  when: not _cf_binary.stat.exists
+
+- name: Ensure cloudflared config directory exists
+  ansible.builtin.file:
+    path: "{{ cloudflared_config_dir }}"
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+
+- name: Ensure cloudflared credentials directory exists
+  ansible.builtin.file:
+    path: "{{ cloudflared_credentials_dir }}"
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+
+# ---------------------------------------------------------------------------
+# Browser auth step — only needed once, skipped if cert already present
+# ---------------------------------------------------------------------------
+- name: Check if Cloudflare auth certificate exists
+  ansible.builtin.stat:
+    path: "{{ cloudflared_credentials_dir }}/cert.pem"
+  register: _cf_cert
+
+- name: Pause for Cloudflare authentication
+  when: not _cf_cert.stat.exists
+  block:
+    - name: Show login instructions
+      ansible.builtin.pause:
+        prompt: |
+
+          ══════════════════════════════════════════════
+            Cloudflare Tunnel — Authentication Required
+          ══════════════════════════════════════════════
+
+          Open a NEW terminal and run:
+
+            cloudflared tunnel login
+
+          A browser window will open. Log in and authorise the domain.
+          The certificate will be saved to {{ cloudflared_credentials_dir }}/cert.pem.
+
+          Press ENTER here once the login completes.
+
+    - name: Verify auth certificate was created
+      ansible.builtin.stat:
+        path: "{{ cloudflared_credentials_dir }}/cert.pem"
+      register: _cf_cert_check
+
+    - name: Fail if authentication did not complete
+      ansible.builtin.fail:
+        msg: >-
+          cert.pem not found at {{ cloudflared_credentials_dir }}.
+          Please complete 'cloudflared tunnel login' before pressing ENTER.
+      when: not _cf_cert_check.stat.exists
+
+# ---------------------------------------------------------------------------
+# Tunnel creation — only needed once, skipped if credentials file exists
+# ---------------------------------------------------------------------------
+- name: Check if tunnel credentials file exists
+  ansible.builtin.stat:
+    path: "{{ cloudflared_credentials_dir }}/{{ cf_tunnel_id }}.json"
+  register: _cf_tunnel_creds
+
+- name: Create tunnel if credentials file is missing
+  when: not _cf_tunnel_creds.stat.exists
+  block:
+    - name: Create Cloudflare tunnel
+      ansible.builtin.command: >
+        cloudflared tunnel create {{ cf_tunnel_name }}
+      register: _cf_tunnel_create
+      changed_when: true
+
+    - name: Show tunnel creation output
+      ansible.builtin.debug:
+        msg: "{{ _cf_tunnel_create.stdout_lines }}"
+
+- name: Route DNS to tunnel
+  ansible.builtin.command: >
+    cloudflared tunnel route dns {{ cf_tunnel_name }} {{ domain }}
+  register: _cf_dns_route
+  changed_when: "'Already exists' not in _cf_dns_route.stderr"
+  failed_when: _cf_dns_route.rc != 0 and 'Already exists' not in _cf_dns_route.stderr
+
+- name: Route wildcard DNS to tunnel
+  ansible.builtin.command: >
+    cloudflared tunnel route dns {{ cf_tunnel_name }} "*.{{ domain }}"
+  register: _cf_dns_wildcard
+  changed_when: "'Already exists' not in _cf_dns_wildcard.stderr"
+  failed_when: _cf_dns_wildcard.rc != 0 and 'Already exists' not in _cf_dns_wildcard.stderr
+
+# ---------------------------------------------------------------------------
+# Deploy config and systemd service
+# ---------------------------------------------------------------------------
+- name: Deploy tunnel config
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ cloudflared_config_dir }}/config.yml"
+    mode: "0600"
+    owner: root
+    group: root
+  notify: restart cloudflared
+
+- name: Deploy systemd service unit
+  ansible.builtin.template:
+    src: cloudflared.service.j2
+    dest: "/etc/systemd/system/{{ cloudflared_service_name }}.service"
+    mode: "0644"
+  notify: restart cloudflared
+
+- name: Enable and start cloudflared service
+  ansible.builtin.systemd:
+    name: "{{ cloudflared_service_name }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Display tunnel info
+  ansible.builtin.debug:
+    msg: "{{ _info.split('\n') }}"
+  vars:
+    _info: |
+      ══════════════════════════════════════════════
+        Cloudflare Tunnel active
+      ══════════════════════════════════════════════
+        Tunnel:  {{ cf_tunnel_name }}
+        Domain:  {{ domain }}
+
+        Traffic flow:
+        Internet → Cloudflare Edge → this machine (no open ports needed)
+
+        Your public IP is never exposed.
+        You can close ports 80 and 443 on your router.
+      ══════════════════════════════════════════════

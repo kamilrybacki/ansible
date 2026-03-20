@@ -44,12 +44,12 @@
           Secure Homelab Remote Access - Setup Wizard
         ══════════════════════════════════════════════
 
-        [1/12] IP or hostname of the target machine
+        [1/14] IP or hostname of the target machine
       default: "{{ hostvars['localhost']['saved_target_host'] | default('') }}"
       private: false
 
     - name: target_ssh_user
-      prompt: "[2/12] SSH user for the target machine"
+      prompt: "[2/14] SSH user for the target machine"
       default: "{{ hostvars['localhost']['saved_ssh_user'] | default('') }}"
       private: false
 
@@ -80,55 +80,55 @@
   vars_prompt:
     # -- Networking --
     - name: prompt_public_ip
-      prompt: "[3/12] What is your public IP address?"
+      prompt: "[3/14] What is your public IP address?"
       default: "{{ hostvars['localhost']['saved_public_ip'] | default('') }}"
       private: false
 
     - name: prompt_domain
       prompt: |
-        [4/12] What domain will you use? (e.g. homelab.example.com)
+        [4/14] What domain will you use? (e.g. homelab.example.com)
                DNS records for *.domain should point to your VPN address.
                You can also use <your-ip>.nip.io for testing without DNS
       default: "{{ hostvars['localhost']['saved_domain'] | default('') }}"
       private: false
 
     - name: prompt_ssh_port
-      prompt: "[5/12] SSH port"
+      prompt: "[5/14] SSH port"
       default: "{{ hostvars['localhost']['saved_ssh_port'] | default('22') }}"
       private: false
 
     - name: prompt_caddy_email
-      prompt: "[6/12] Email for Let's Encrypt certificate notifications"
+      prompt: "[6/14] Email for Let's Encrypt certificate notifications"
       default: "{{ hostvars['localhost']['saved_caddy_email'] | default('') }}"
       private: false
 
     # -- WireGuard --
     - name: prompt_wireguard_password
-      prompt: "[7/12] WireGuard admin UI password (for managing VPN peers)"
+      prompt: "[7/14] WireGuard admin UI password (for managing VPN peers)"
       default: "{{ hostvars['localhost']['saved_wireguard_password'] | default('') }}"
       private: true
       confirm: true
 
     # -- Authelia --
     - name: prompt_authelia_user
-      prompt: "[8/12] Authelia admin username"
+      prompt: "[8/14] Authelia admin username"
       default: "{{ hostvars['localhost']['saved_authelia_user'] | default('admin') }}"
       private: false
 
     - name: prompt_authelia_password
-      prompt: "[9/12] Authelia admin password (will be hashed with bcrypt)"
+      prompt: "[9/14] Authelia admin password (will be hashed with bcrypt)"
       default: "{{ hostvars['localhost']['saved_authelia_password'] | default('') }}"
       private: true
       confirm: true
 
     - name: prompt_authelia_email
-      prompt: "[10/12] Authelia admin email (for notifications and recovery)"
+      prompt: "[10/14] Authelia admin email (for notifications and recovery)"
       default: "{{ hostvars['localhost']['saved_authelia_email'] | default('') }}"
       private: false
 
     # -- Pi-hole --
     - name: prompt_pihole_password
-      prompt: "[11/12] Pi-hole admin password (for DNS dashboard)"
+      prompt: "[11/14] Pi-hole admin password (for DNS dashboard)"
       default: "{{ hostvars['localhost']['saved_pihole_password'] | default('') }}"
       private: true
       confirm: true
@@ -136,13 +136,30 @@
     # -- Cloudflare (optional) --
     - name: prompt_cloudflare_token
       prompt: |
-        [12/12] Cloudflare API token (optional — press Enter to skip)
-               When provided: hides your real IP, enables wildcard TLS certs,
-               and Cloudflare absorbs DDoS before it reaches your server.
+        [12/14] Cloudflare API token (optional — press Enter to skip)
+               When provided: enables wildcard TLS certs via DNS-01 challenge.
                Create at: dash.cloudflare.com → My Profile → API Tokens
                Required permissions: Zone / DNS / Edit
       default: "{{ hostvars['localhost']['saved_cloudflare_token'] | default('') }}"
       private: true
+
+    # -- Cloudflare Tunnel (optional) --
+    - name: prompt_cf_tunnel_name
+      prompt: |
+        [13/14] Cloudflare Tunnel name (optional — press Enter to skip)
+               Creates a zero-trust tunnel: no open inbound ports, real IP hidden.
+               Requires a domain managed by Cloudflare.
+               Leave blank to use direct port forwarding instead.
+      default: "{{ hostvars['localhost']['saved_cf_tunnel_name'] | default('') }}"
+      private: false
+
+    - name: prompt_cf_tunnel_id
+      prompt: |
+        [14/14] Cloudflare Tunnel ID (leave blank if creating a new tunnel)
+               If you already ran 'cloudflared tunnel create', paste the UUID here.
+               Otherwise leave blank — the playbook will create it for you.
+      default: "{{ hostvars['localhost']['saved_cf_tunnel_id'] | default('') }}"
+      private: false
 
   pre_tasks:
     - name: Validate required prompts are not empty
@@ -169,6 +186,8 @@
         authelia_default_email: "{{ prompt_authelia_email }}"
         pihole_password: "{{ prompt_pihole_password }}"
         cloudflare_api_token: "{{ prompt_cloudflare_token }}"
+        cf_tunnel_name: "{{ prompt_cf_tunnel_name }}"
+        cf_tunnel_id: "{{ prompt_cf_tunnel_id }}"
       no_log: true
 
     - name: Set Authelia password hash
@@ -258,6 +277,8 @@
           saved_authelia_email: "{{ authelia_default_email }}"
           saved_pihole_password: "{{ pihole_password }}"
           saved_cloudflare_token: "{{ cloudflare_api_token }}"
+          saved_cf_tunnel_name: "{{ cf_tunnel_name }}"
+          saved_cf_tunnel_id: "{{ cf_tunnel_id }}"
         dest: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
         owner: "{{ lookup('env', 'USER') }}"
         mode: "0600"
@@ -300,6 +321,7 @@
             Secrets:      auto-generated (jwt, session, encryption key)
             CrowdSec:     enabled (rate-limit + threat intelligence)
             Cloudflare:   {{ 'enabled (DNS-01 TLS + DDoS protection)' if cloudflare_api_token | default('') else 'disabled (no token provided)' }}
+            CF Tunnel:    {{ 'enabled → ' + cf_tunnel_name if cf_tunnel_name | default('') else 'disabled (direct port forwarding)' }}
           ══════════════════════════════════════════════
 
     - name: Confirm deployment
@@ -324,6 +346,10 @@
 
     - role: crowdsec
       tags: [crowdsec, security]
+
+    - role: cloudflared
+      tags: [cloudflared, tunnel]
+      when: cf_tunnel_name | default('')
 
     - role: authelia
       tags: [authelia, auth]

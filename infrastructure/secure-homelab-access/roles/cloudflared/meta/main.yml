@@ -1,0 +1,8 @@
+# roles/cloudflared/meta/main.yml
+---
+galaxy_info:
+  role_name: cloudflared
+  author: kamilrybacki
+  description: Deploy Cloudflare Tunnel for zero-trust inbound access (no open ports)
+  min_ansible_version: "2.10"
+dependencies: []

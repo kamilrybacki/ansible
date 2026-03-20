@@ -1,0 +1,11 @@
+tunnel: {{ cf_tunnel_id }}
+credentials-file: {{ cloudflared_credentials_dir }}/{{ cf_tunnel_id }}.json
+
+ingress:
+  # Route all subdomains and the root domain to Caddy
+  - hostname: "{{ domain }}"
+    service: http://localhost:80
+  - hostname: "*.{{ domain }}"
+    service: http://localhost:80
+  # Catch-all (required by cloudflared)
+  - service: http_status:404
