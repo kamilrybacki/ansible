@@ -12,19 +12,9 @@
     owner: root
     group: root
 
-- name: Hash admin token with argon2id via Vaultwarden CLI
-  ansible.builtin.command: >-
-    docker run --rm {{ vaultwarden_image }}
-    /vaultwarden hash --preset owasp
-  args:
-    stdin: "{{ vaultwarden_admin_token }}"
-  register: _vw_hash_result
-  changed_when: false
-  no_log: true
-
-- name: Set hashed admin token fact
+- name: Use admin token as-is (must be pre-hashed argon2id or plaintext)
   ansible.builtin.set_fact:
-    _vw_hashed_token: "{{ _vw_hash_result.stdout | trim }}"
+    _vw_hashed_token: "{{ vaultwarden_admin_token }}"
   no_log: true
 
 - name: Start Vaultwarden container
