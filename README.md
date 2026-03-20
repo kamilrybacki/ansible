@@ -98,6 +98,7 @@ Playbooks for hardening and managing physical or virtual servers in the homelab.
 | [`infrastructure/secure-homelab-access`](./infrastructure/secure-homelab-access/) | Secure remote access — WireGuard VPN, Authelia 2FA, Caddy HTTPS, Pi-hole DNS, CrowdSec, fail2ban, UFW, Cockpit, Homepage | 9 |
 | [`infrastructure/librenms-setup`](./infrastructure/librenms-setup/) | LibreNMS network monitoring — Docker Compose stack, SNMP discovery, web UI | 2 |
 | [`infrastructure/snmp-setup`](./infrastructure/snmp-setup/) | SNMP agent provisioning — snmpd, LibreNMS extend scripts, UFW rule on UDP 161 | — |
+| [`infrastructure/netbox-setup`](./infrastructure/netbox-setup/) | Netbox — infrastructure documentation, IPAM, rack management, asset inventory | 2 |
 | [`infrastructure/nas-setup`](./infrastructure/nas-setup/) | NAS — mergerfs pool, SnapRAID parity, NFS shares, SMART monitoring, cron backups | 6 |
 | [`infrastructure/lab-network`](./infrastructure/lab-network/) | Lab gateway — dnsmasq DHCP/DNS, NAT, static leases for k8s nodes | — |
 
@@ -144,6 +145,16 @@ Provisions the SNMP daemon on multiple target machines so they can be monitored 
 - **Configures:** `/etc/snmp/snmpd.conf` with read-only community string, `sysLocation`, `sysContact`, hardware/distro OID extensions
 - **Opens:** UDP 161 via UFW
 - **Prompts for:** comma-separated list of target IPs, SSH user, SNMP community string
+
+### infrastructure/netbox-setup
+
+Deploys [Netbox](https://netbox.dev/) — the leading open-source tool for IP address management (IPAM) and data center infrastructure management (DCIM).
+
+- **Stack:** Netbox (v4.2) + Netbox Worker + Netbox Housekeeping + PostgreSQL 16 + Valkey (Redis-compatible) via Docker Compose
+- **Web UI:** port 8080
+- **Configures:** admin user/email/password, auto-generated secrets (DB password, secret key, Redis passwords, API token) persisted in `~/.homelab-secrets/netbox/`
+- **Integrates with:** Caddy (reverse proxy with Authelia 2FA), Cloudflare Tunnel, Pi-hole DNS, Homepage dashboard
+- **Prompts for:** target host, SSH user, admin username, admin email, admin password
 
 ### infrastructure/nas-setup
 
