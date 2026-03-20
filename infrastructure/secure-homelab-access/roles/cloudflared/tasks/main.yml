@@ -86,6 +86,8 @@
     - name: Create Cloudflare tunnel
       ansible.builtin.command: >
         cloudflared tunnel create {{ cf_tunnel_name }}
+      environment:
+        TUNNEL_ORIGIN_CERT: "{{ cloudflared_credentials_dir }}/cert.pem"
       register: _cf_tunnel_create
       changed_when: true
 
@@ -96,6 +98,8 @@
 - name: Route DNS to tunnel
   ansible.builtin.command: >
     cloudflared tunnel route dns {{ cf_tunnel_name }} {{ domain }}
+  environment:
+    TUNNEL_ORIGIN_CERT: "{{ cloudflared_credentials_dir }}/cert.pem"
   register: _cf_dns_route
   changed_when: "'Already exists' not in _cf_dns_route.stderr"
   failed_when: _cf_dns_route.rc != 0 and 'Already exists' not in _cf_dns_route.stderr
@@ -103,6 +107,8 @@
 - name: Route wildcard DNS to tunnel
   ansible.builtin.command: >
     cloudflared tunnel route dns {{ cf_tunnel_name }} "*.{{ domain }}"
+  environment:
+    TUNNEL_ORIGIN_CERT: "{{ cloudflared_credentials_dir }}/cert.pem"
   register: _cf_dns_wildcard
   changed_when: "'Already exists' not in _cf_dns_wildcard.stderr"
   failed_when: _cf_dns_wildcard.rc != 0 and 'Already exists' not in _cf_dns_wildcard.stderr
