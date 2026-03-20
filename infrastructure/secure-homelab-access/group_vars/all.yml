@@ -58,6 +58,11 @@ subdomain_cockpit: "cockpit"
 subdomain_wireguard: "wg"
 subdomain_pihole: "pihole"
 
+# -- CrowdSec -----------------------------------------------------------------
+crowdsec_container_name: "crowdsec"
+crowdsec_data_dir: "{{ docker_data_dir }}/crowdsec"
+crowdsec_lapi_port: 8080
+
 # -- Fail2ban ------------------------------------------------------------------
 fail2ban_maxretry: 5
 fail2ban_bantime: 86400

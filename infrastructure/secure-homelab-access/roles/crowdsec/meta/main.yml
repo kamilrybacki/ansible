@@ -1,0 +1,9 @@
+# roles/crowdsec/meta/main.yml
+---
+galaxy_info:
+  role_name: crowdsec
+  author: kamilrybacki
+  description: Deploy CrowdSec collaborative intrusion detection and prevention
+  min_ansible_version: "2.10"
+dependencies:
+  - docker

@@ -1,0 +1,9 @@
+FROM caddy:2-builder AS builder
+
+RUN xcaddy build \
+    --with github.com/mholt/caddy-ratelimit \
+    --with github.com/hslatman/caddy-crowdsec-bouncer/http \
+    --with github.com/caddy-dns/cloudflare
+
+FROM caddy:2-alpine
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy

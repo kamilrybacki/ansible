@@ -1,2 +1,5 @@
+# roles/caddy/defaults/main.yml
 ---
-caddy_image: "caddy:2-alpine"
+caddy_image: "caddy-homelab:latest"
+caddy_rate_limit_requests: 100
+caddy_rate_limit_window: "1m"

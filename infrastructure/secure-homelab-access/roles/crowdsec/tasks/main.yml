@@ -1,0 +1,85 @@
+# roles/crowdsec/tasks/main.yml
+---
+- name: Create CrowdSec data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+    owner: root
+    group: root
+  loop:
+    - "{{ crowdsec_data_dir }}"
+    - "{{ crowdsec_data_dir }}/config"
+    - "{{ crowdsec_data_dir }}/data"
+
+- name: Deploy log acquisition config
+  ansible.builtin.template:
+    src: acquis.yaml.j2
+    dest: "{{ crowdsec_data_dir }}/config/acquis.yaml"
+    mode: "0640"
+  notify: restart crowdsec
+
+- name: Deploy CrowdSec container
+  community.docker.docker_container:
+    name: "{{ crowdsec_container_name }}"
+    image: "{{ crowdsec_image }}"
+    state: started
+    restart_policy: unless-stopped
+    env:
+      COLLECTIONS: "{{ crowdsec_collections | join(' ') }}"
+    volumes:
+      - "{{ crowdsec_data_dir }}/config:/etc/crowdsec"
+      - "{{ crowdsec_data_dir }}/data:/var/lib/crowdsec/data"
+      - "/var/log:/var/log:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - name: "{{ docker_network_name }}"
+
+- name: Wait for CrowdSec LAPI to become ready
+  ansible.builtin.command: docker exec {{ crowdsec_container_name }} cscli version
+  register: _crowdsec_ready
+  until: _crowdsec_ready.rc == 0
+  retries: 15
+  delay: 3
+  changed_when: false
+
+- name: Check if bouncer key file already exists
+  ansible.builtin.stat:
+    path: "{{ crowdsec_data_dir }}/caddy-bouncer-key"
+  register: _bouncer_key_file
+
+- name: Remove stale bouncer registration (if key file missing but bouncer exists)
+  ansible.builtin.command: >
+    docker exec {{ crowdsec_container_name }} cscli bouncers delete caddy-bouncer
+  failed_when: false
+  changed_when: false
+  when: not _bouncer_key_file.stat.exists
+
+- name: Generate new Caddy bouncer API key
+  ansible.builtin.command: >
+    docker exec {{ crowdsec_container_name }} cscli bouncers add caddy-bouncer -o raw
+  register: _bouncer_key_raw
+  when: not _bouncer_key_file.stat.exists
+  changed_when: true
+  no_log: true
+
+- name: Persist bouncer key to file
+  ansible.builtin.copy:
+    content: "{{ _bouncer_key_raw.stdout | trim }}"
+    dest: "{{ crowdsec_data_dir }}/caddy-bouncer-key"
+    owner: root
+    group: root
+    mode: "0600"
+  when: not _bouncer_key_file.stat.exists
+  no_log: true
+
+- name: Load bouncer key
+  ansible.builtin.slurp:
+    src: "{{ crowdsec_data_dir }}/caddy-bouncer-key"
+  register: _bouncer_key_slurp
+  no_log: true
+
+- name: Set CrowdSec bouncer key fact
+  ansible.builtin.set_fact:
+    crowdsec_bouncer_key: "{{ _bouncer_key_slurp.content | b64decode | trim }}"
+  no_log: true

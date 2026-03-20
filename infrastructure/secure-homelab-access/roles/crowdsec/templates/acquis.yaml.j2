@@ -1,0 +1,14 @@
+# Acquire logs from Caddy container via Docker log driver
+---
+source: docker
+container_name:
+  - {{ caddy_container_name }}
+labels:
+  type: caddy
+---
+# Acquire SSH auth logs from host
+source: file
+filenames:
+  - /var/log/auth.log
+labels:
+  type: syslog

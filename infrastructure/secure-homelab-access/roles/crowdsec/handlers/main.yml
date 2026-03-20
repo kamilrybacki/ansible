@@ -1,0 +1,7 @@
+# roles/crowdsec/handlers/main.yml
+---
+- name: restart crowdsec
+  community.docker.docker_container:
+    name: "{{ crowdsec_container_name }}"
+    state: started
+    restart: true

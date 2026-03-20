@@ -1,0 +1,11 @@
+# roles/crowdsec/defaults/main.yml
+---
+crowdsec_image: "crowdsecurity/crowdsec:latest"
+crowdsec_container_name: "crowdsec"
+crowdsec_data_dir: "{{ docker_data_dir }}/crowdsec"
+crowdsec_collections:
+  - crowdsecurity/linux
+  - crowdsecurity/caddy
+  - crowdsecurity/http-cve
+  - crowdsecurity/sshd
+crowdsec_lapi_port: 8080

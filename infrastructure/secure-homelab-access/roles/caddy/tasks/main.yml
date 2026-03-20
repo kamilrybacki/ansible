@@ -1,3 +1,4 @@
+# roles/caddy/tasks/main.yml
 ---
 - name: Create Caddy directories
   ansible.builtin.file:
@@ -8,6 +9,47 @@
     - "{{ caddy_data_dir }}"
     - "{{ caddy_data_dir }}/config"
     - "{{ caddy_data_dir }}/data"
+
+- name: Deploy Caddy Dockerfile with plugins
+  ansible.builtin.template:
+    src: Dockerfile.j2
+    dest: "{{ caddy_data_dir }}/Dockerfile"
+    mode: "0644"
+  register: _caddy_dockerfile
+
+- name: Check if custom Caddy image already exists
+  ansible.builtin.command: docker image inspect caddy-homelab:latest
+  register: _caddy_image_exists
+  failed_when: false
+  changed_when: false
+
+- name: Build custom Caddy image (rate-limit + CrowdSec bouncer + Cloudflare DNS)
+  ansible.builtin.command: docker build -t caddy-homelab:latest {{ caddy_data_dir }}
+  when: _caddy_image_exists.rc != 0 or _caddy_dockerfile.changed
+  changed_when: true
+  async: 600
+  poll: 10
+
+- name: Load CrowdSec bouncer key from file (when not set by crowdsec role)
+  when: crowdsec_bouncer_key is not defined
+  block:
+    - name: Check bouncer key file
+      ansible.builtin.stat:
+        path: "{{ docker_data_dir }}/crowdsec/caddy-bouncer-key"
+      register: _cs_key_stat
+
+    - name: Read bouncer key from file
+      ansible.builtin.slurp:
+        src: "{{ docker_data_dir }}/crowdsec/caddy-bouncer-key"
+      register: _cs_key_slurp
+      when: _cs_key_stat.stat.exists
+      no_log: true
+
+    - name: Set bouncer key fact from file
+      ansible.builtin.set_fact:
+        crowdsec_bouncer_key: "{{ _cs_key_slurp.content | b64decode | trim }}"
+      when: _cs_key_stat.stat.exists
+      no_log: true
 
 - name: Deploy Caddyfile
   ansible.builtin.template:
@@ -22,6 +64,9 @@
     image: "{{ caddy_image }}"
     state: started
     restart_policy: unless-stopped
+    env:
+      CROWDSEC_API_KEY: "{{ crowdsec_bouncer_key | default('disabled') }}"
+      CF_API_TOKEN: "{{ cloudflare_api_token | default('') }}"
     ports:
       - "80:80"
       - "443:443"
