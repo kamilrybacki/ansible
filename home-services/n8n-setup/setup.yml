@@ -28,6 +28,15 @@
         file: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
       when: _homelab_vars_stat.stat.exists
 
+    - name: Check Vault availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
+
+    - name: Load secrets from Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
+      vars:
+        vault_service_name: "n8n"
+      when: _vault_available | bool
+
 - name: Gather n8n host details
   hosts: localhost
   connection: local
@@ -53,6 +62,7 @@
 
     - name: n8n_owner_password
       prompt: "[4/5] Password for the n8n owner account"
+      default: "{{ hostvars['localhost']['_vault_secrets']['owner_password'] | default('') }}"
       private: true
       confirm: true
 
@@ -80,6 +90,20 @@
             else ''
           }}
       no_log: true
+
+- name: Store n8n secrets to Vault
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Store secrets to Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/store.yml"
+      vars:
+        vault_service_name: "n8n"
+        vault_secrets_data:
+          owner_email: "{{ hostvars[groups['n8n_hosts'][0]]['n8n_owner_email'] | default('') }}"
+          owner_password: "{{ hostvars[groups['n8n_hosts'][0]]['n8n_owner_password'] | default('') }}"
+      when: _vault_available | default(false) | bool
 
 - name: Install Docker and deploy n8n
   hosts: n8n_hosts

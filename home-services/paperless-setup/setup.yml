@@ -25,6 +25,15 @@
         file: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
       when: _homelab_vars_stat.stat.exists
 
+    - name: Check Vault availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
+
+    - name: Load secrets from Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
+      vars:
+        vault_service_name: "paperless"
+      when: _vault_available | bool
+
 - name: Gather host details
   hosts: localhost
   connection: local
@@ -51,6 +60,7 @@
 
     - name: paperless_admin_password
       prompt: "[4/5] Admin password"
+      default: "{{ hostvars['localhost']['_vault_secrets']['admin_password'] | default('') }}"
       private: true
       confirm: true
 
@@ -77,6 +87,20 @@
             else ''
           }}
       no_log: true
+
+- name: Store Paperless secrets to Vault
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Store secrets to Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/store.yml"
+      vars:
+        vault_service_name: "paperless"
+        vault_secrets_data:
+          admin_user: "{{ hostvars[groups['paperless_hosts'][0]]['paperless_admin_user'] | default('') }}"
+          admin_password: "{{ hostvars[groups['paperless_hosts'][0]]['paperless_admin_password'] | default('') }}"
+      when: _vault_available | default(false) | bool
 
 - name: Install Docker and deploy Paperless-ngx
   hosts: paperless_hosts

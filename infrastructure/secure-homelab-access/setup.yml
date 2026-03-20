@@ -32,6 +32,15 @@
         file: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
       when: _setup_vars_stat.stat.exists
 
+    - name: Check Vault availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
+
+    - name: Load secrets from Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
+      vars:
+        vault_service_name: "infrastructure"
+      when: _vault_available | bool
+
 - name: Gather host details
   hosts: localhost
   connection: local
@@ -107,7 +116,7 @@
     # -- WireGuard --
     - name: prompt_wireguard_password
       prompt: "[7/14] WireGuard admin UI password (for managing VPN peers)"
-      default: "{{ hostvars['localhost']['saved_wireguard_password'] | default('') }}"
+      default: "{{ hostvars['localhost']['_vault_secrets']['wireguard_password'] | default(hostvars['localhost']['saved_wireguard_password'] | default('')) }}"
       private: true
       confirm: true
 
@@ -119,7 +128,7 @@
 
     - name: prompt_authelia_password
       prompt: "[9/14] Authelia admin password (will be hashed with bcrypt)"
-      default: "{{ hostvars['localhost']['saved_authelia_password'] | default('') }}"
+      default: "{{ hostvars['localhost']['_vault_secrets']['authelia_password'] | default(hostvars['localhost']['saved_authelia_password'] | default('')) }}"
       private: true
       confirm: true
 
@@ -131,7 +140,7 @@
     # -- Pi-hole --
     - name: prompt_pihole_password
       prompt: "[11/14] Pi-hole admin password (for DNS dashboard)"
-      default: "{{ hostvars['localhost']['saved_pihole_password'] | default('') }}"
+      default: "{{ hostvars['localhost']['_vault_secrets']['pihole_password'] | default(hostvars['localhost']['saved_pihole_password'] | default('')) }}"
       private: true
       confirm: true
 
@@ -142,7 +151,7 @@
                When provided: enables wildcard TLS certs via DNS-01 challenge.
                Create at: dash.cloudflare.com → My Profile → API Tokens
                Required permissions: Zone / DNS / Edit
-      default: "{{ hostvars['localhost']['saved_cloudflare_token'] | default('') }}"
+      default: "{{ hostvars['localhost']['_vault_secrets']['cloudflare_token'] | default(hostvars['localhost']['saved_cloudflare_token'] | default('')) }}"
       private: true
 
     # -- Cloudflare Tunnel (optional) --
@@ -313,6 +322,20 @@
         mode: "0600"
       no_log: true
       become: false
+      tags: [always]
+
+    - name: Store infrastructure secrets to Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/store.yml"
+      vars:
+        vault_service_name: "infrastructure"
+        vault_secrets_data:
+          wireguard_password: "{{ wireguard_password }}"
+          authelia_user: "{{ authelia_default_user }}"
+          authelia_password: "{{ prompt_authelia_password }}"
+          authelia_email: "{{ authelia_default_email }}"
+          pihole_password: "{{ pihole_password }}"
+          cloudflare_token: "{{ cloudflare_api_token }}"
+      when: hostvars['localhost']['_vault_available'] | default(false) | bool
       tags: [always]
 
     - name: Update firewall ports from prompted SSH port

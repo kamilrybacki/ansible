@@ -25,6 +25,15 @@
         file: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
       when: _homelab_vars_stat.stat.exists
 
+    - name: Check Vault availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
+
+    - name: Load secrets from Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
+      vars:
+        vault_service_name: "vaultwarden"
+      when: _vault_available | bool
+
 - name: Gather host details
   hosts: localhost
   connection: local
@@ -46,6 +55,7 @@
 
     - name: vaultwarden_admin_token
       prompt: "[3/7] Admin token for the /admin panel"
+      default: "{{ hostvars['localhost']['_vault_secrets']['admin_token'] | default('') }}"
       private: true
       confirm: true
 
@@ -75,7 +85,7 @@
 
     - name: smtp_password
       prompt: "[7/7] SMTP password / app password / API key"
-      default: ""
+      default: "{{ hostvars['localhost']['_vault_secrets']['smtp_password'] | default('') }}"
       private: true
 
     - name: smtp_host_custom
@@ -127,6 +137,20 @@
         vaultwarden_smtp_username: "{{ smtp_username }}"
         vaultwarden_smtp_password: "{{ smtp_password }}"
       no_log: true
+
+- name: Store Vaultwarden secrets to Vault
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Store secrets to Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/store.yml"
+      vars:
+        vault_service_name: "vaultwarden"
+        vault_secrets_data:
+          admin_token: "{{ hostvars[groups['vaultwarden_hosts'][0]]['vaultwarden_admin_token'] | default('') }}"
+          smtp_password: "{{ hostvars[groups['vaultwarden_hosts'][0]]['vaultwarden_smtp_password'] | default('') }}"
+      when: _vault_available | default(false) | bool
 
 - name: Install Docker and deploy Vaultwarden
   hosts: vaultwarden_hosts

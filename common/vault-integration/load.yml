@@ -1,0 +1,48 @@
+---
+# common/vault-integration/load.yml
+#
+# Loads secrets from Vault for the current service.
+# Requires:
+#   _vault_available  – set by check.yml
+#   vault_service_name – e.g. "openclaw", "dify", "infrastructure"
+#
+# Sets fact:
+#   _vault_secrets (dict) – key/value pairs from Vault, empty dict if unavailable
+#
+# Usage:
+#   - name: Load secrets from Vault
+#     ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
+#     vars:
+#       vault_service_name: "openclaw"
+#
+# After loading, access secrets with: _vault_secrets.<key> | default('')
+
+- name: Initialize empty secrets
+  ansible.builtin.set_fact:
+    _vault_secrets: {}
+
+- name: Read secrets from Vault
+  when: _vault_available | bool
+  block:
+    - name: Fetch secrets from Vault KV
+      ansible.builtin.uri:
+        url: "{{ _vault_addr }}/v1/{{ _vault_kv_mount }}/data/homelab/{{ vault_service_name }}"
+        headers:
+          X-Vault-Token: "{{ _vault_token }}"
+        status_code: [200, 404]
+        timeout: 10
+      register: _vault_read_result
+      no_log: true
+
+    - name: Parse Vault secrets
+      ansible.builtin.set_fact:
+        _vault_secrets: "{{ (_vault_read_result.json.data.data | default({})) | combine({'_initialized': omit}) }}"
+      when: _vault_read_result.status == 200
+      no_log: true
+
+    - name: Report loaded secrets
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'Loaded ' + (_vault_secrets | length | string) + ' secret(s) from Vault path homelab/' + vault_service_name + '.'
+             if _vault_secrets | length > 0
+             else 'No secrets found in Vault path homelab/' + vault_service_name + ' — will use prompted values.' }}

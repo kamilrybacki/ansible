@@ -1,0 +1,51 @@
+---
+# common/vault-integration/store.yml
+#
+# Stores secrets to Vault for the current service.
+# Requires:
+#   _vault_available   – set by check.yml
+#   vault_service_name – e.g. "openclaw", "dify", "infrastructure"
+#   vault_secrets_data – dict of key/value pairs to store
+#
+# Usage:
+#   - name: Store secrets to Vault
+#     ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/store.yml"
+#     vars:
+#       vault_service_name: "openclaw"
+#       vault_secrets_data:
+#         nvidia_api_key: "{{ openclaw_nvidia_api_key }}"
+#         groq_api_key: "{{ openclaw_groq_api_key }}"
+
+- name: Store secrets to Vault
+  when:
+    - _vault_available | bool
+    - vault_secrets_data | default({}) | length > 0
+  block:
+    - name: Filter out empty values
+      ansible.builtin.set_fact:
+        _vault_store_data: >-
+          {{ vault_secrets_data | dict2items
+             | selectattr('value', 'ne', '')
+             | selectattr('value', 'ne', None)
+             | list | items2dict }}
+      no_log: true
+
+    - name: Write secrets to Vault KV
+      ansible.builtin.uri:
+        url: "{{ _vault_addr }}/v1/{{ _vault_kv_mount }}/data/homelab/{{ vault_service_name }}"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ _vault_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          data: "{{ _vault_store_data }}"
+        status_code: [200, 204]
+        timeout: 10
+      when: _vault_store_data | length > 0
+      no_log: true
+
+    - name: Report stored secrets
+      ansible.builtin.debug:
+        msg: "Stored {{ _vault_store_data | default({}) | length }} secret(s) to Vault path homelab/{{ vault_service_name }}."
+      when: _vault_store_data | default({}) | length > 0

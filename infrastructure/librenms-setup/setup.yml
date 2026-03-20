@@ -30,6 +30,15 @@
         file: "{{ lookup('env', 'HOME') }}/.librenms-setup-vars.yml"
       when: _setup_vars_stat.stat.exists
 
+    - name: Check Vault availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
+
+    - name: Load secrets from Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
+      vars:
+        vault_service_name: "librenms"
+      when: _vault_available | bool
+
 - name: Gather host details
   hosts: localhost
   connection: local
@@ -67,7 +76,7 @@
 
     - name: librenms_db_password
       prompt: "[5/6] Database password (will be set on first run)"
-      default: "{{ hostvars['localhost']['saved_db_password'] | default('') }}"
+      default: "{{ hostvars['localhost']['_vault_secrets']['db_password'] | default(hostvars['localhost']['saved_db_password'] | default('')) }}"
       private: true
 
     - name: librenms_timezone
@@ -102,6 +111,20 @@
         owner: "{{ lookup('env', 'USER') }}"
         mode: "0600"
       no_log: true
+
+- name: Store LibreNMS secrets to Vault
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Store secrets to Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/store.yml"
+      vars:
+        vault_service_name: "librenms"
+        vault_secrets_data:
+          snmp_community: "{{ librenms_snmp_community }}"
+          db_password: "{{ librenms_db_password }}"
+      when: _vault_available | default(false) | bool
 
 - name: Install Docker and deploy LibreNMS
   hosts: librenms_hosts

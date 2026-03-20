@@ -1,0 +1,54 @@
+---
+# common/vault-integration/check.yml
+#
+# Checks if HashiCorp Vault is available and loads connection details.
+# Sets facts:
+#   _vault_available  (bool)  – true if Vault is reachable and authenticated
+#   _vault_addr       (str)   – Vault API URL
+#   _vault_token      (str)   – Ansible automation token
+#   _vault_kv_mount   (str)   – KV v2 mount path
+#
+# Usage:
+#   - name: Check Vault
+#     ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
+
+- name: Check for Vault connection file
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.vault-ansible.yml"
+  register: _vault_conn_file
+
+- name: Load Vault connection details
+  ansible.builtin.include_vars:
+    file: "{{ lookup('env', 'HOME') }}/.vault-ansible.yml"
+    name: _vault_conn
+  when: _vault_conn_file.stat.exists
+
+- name: Test Vault connectivity
+  ansible.builtin.uri:
+    url: "{{ _vault_conn.vault_addr | default('http://127.0.0.1:8200') }}/v1/sys/health"
+    headers:
+      X-Vault-Token: "{{ _vault_conn.vault_token | default('') }}"
+    status_code: [200]
+    timeout: 5
+  register: _vault_health_check
+  failed_when: false
+  when: _vault_conn_file.stat.exists
+
+- name: Set Vault availability facts
+  ansible.builtin.set_fact:
+    _vault_available: >-
+      {{
+        _vault_conn_file.stat.exists and
+        (_vault_health_check.status | default(0)) == 200
+      }}
+    _vault_addr: "{{ _vault_conn.vault_addr | default('') }}"
+    _vault_token: "{{ _vault_conn.vault_token | default('') }}"
+    _vault_kv_mount: "{{ _vault_conn.vault_kv_mount | default('secret') }}"
+  no_log: true
+
+- name: Report Vault status
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'Vault is available at ' + _vault_addr + ' — secrets will be loaded/stored automatically.'
+         if _vault_available | bool
+         else 'Vault not available — falling back to interactive prompts.' }}

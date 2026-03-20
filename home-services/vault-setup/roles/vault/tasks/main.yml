@@ -1,0 +1,263 @@
+---
+- name: Install Python Docker SDK
+  ansible.builtin.apt:
+    name: python3-docker
+    state: present
+
+- name: Create Vault directories
+  ansible.builtin.file:
+    path: "{{ vault_install_dir }}/{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - ""
+    - data
+    - config
+    - logs
+
+- name: Write Vault server config
+  ansible.builtin.template:
+    src: vault.hcl.j2
+    dest: "{{ vault_install_dir }}/config/vault.hcl"
+    mode: "0644"
+  notify: Restart vault
+
+- name: Write Vault docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ vault_install_dir }}/docker-compose.yml"
+    mode: "0644"
+  notify: Restart vault
+
+- name: Start Vault with Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ vault_install_dir }}"
+    state: present
+
+- name: Wait for Vault to start (may be sealed or uninitialized)
+  ansible.builtin.command:
+    cmd: >
+      docker exec vault vault status -format=json
+  register: vault_status_raw
+  until: vault_status_raw.rc in [0, 1, 2]
+  retries: "{{ vault_health_check_retries }}"
+  delay: "{{ vault_health_check_delay }}"
+  changed_when: false
+  failed_when: false
+
+- name: Parse Vault status
+  ansible.builtin.set_fact:
+    vault_status: "{{ vault_status_raw.stdout | from_json }}"
+  when: vault_status_raw.stdout | default('') | length > 0
+
+# --- Initialization ---
+- name: Check if Vault needs initialization
+  ansible.builtin.set_fact:
+    vault_needs_init: "{{ not (vault_status.initialized | default(false)) }}"
+
+- name: Initialize Vault
+  ansible.builtin.command:
+    cmd: >
+      docker exec vault vault operator init
+      -key-shares=3 -key-threshold=2 -format=json
+  register: vault_init_result
+  when: vault_needs_init
+  no_log: true
+
+- name: Save init keys to file
+  ansible.builtin.copy:
+    content: "{{ vault_init_result.stdout }}"
+    dest: "{{ vault_keys_file }}"
+    mode: "0600"
+  when: vault_needs_init and vault_auto_unseal
+  no_log: true
+
+- name: Set init data fact
+  ansible.builtin.set_fact:
+    vault_init_data: "{{ vault_init_result.stdout | from_json }}"
+  when: vault_needs_init
+  no_log: true
+
+# --- Unsealing ---
+- name: Load existing init keys
+  ansible.builtin.slurp:
+    src: "{{ vault_keys_file }}"
+  register: vault_keys_slurp
+  when: not vault_needs_init and vault_auto_unseal
+  no_log: true
+  failed_when: false
+
+- name: Set init data from saved keys
+  ansible.builtin.set_fact:
+    vault_init_data: "{{ vault_keys_slurp.content | b64decode | from_json }}"
+  when:
+    - not vault_needs_init
+    - vault_auto_unseal
+    - vault_keys_slurp.content is defined
+  no_log: true
+
+- name: Unseal Vault (key 1)
+  ansible.builtin.command:
+    cmd: >
+      docker exec -e VAULT_ADDR=http://127.0.0.1:8200
+      vault vault operator unseal {{ vault_init_data.unseal_keys_b64[0] }}
+  when: vault_init_data is defined
+  changed_when: true
+  no_log: true
+
+- name: Unseal Vault (key 2)
+  ansible.builtin.command:
+    cmd: >
+      docker exec -e VAULT_ADDR=http://127.0.0.1:8200
+      vault vault operator unseal {{ vault_init_data.unseal_keys_b64[1] }}
+  when: vault_init_data is defined
+  changed_when: true
+  no_log: true
+
+- name: Set root token fact
+  ansible.builtin.set_fact:
+    vault_root_token: "{{ vault_init_data.root_token }}"
+  when: vault_init_data is defined
+  no_log: true
+
+- name: Wait for Vault to become ready after unseal
+  ansible.builtin.uri:
+    url: "http://{{ vault_bind_address }}:{{ vault_port }}/v1/sys/health"
+    status_code: [200]
+  register: vault_health
+  until: vault_health is not failed
+  retries: "{{ vault_health_check_retries }}"
+  delay: "{{ vault_health_check_delay }}"
+
+# --- Configure secrets engine and policy ---
+- name: Enable KV v2 secrets engine
+  ansible.builtin.command:
+    cmd: >
+      docker exec -e VAULT_ADDR=http://127.0.0.1:8200
+      -e VAULT_TOKEN={{ vault_root_token }}
+      vault vault secrets enable -path={{ vault_kv_mount }} -version=2 kv
+  register: kv_enable
+  changed_when: kv_enable.rc == 0
+  failed_when: kv_enable.rc != 0 and 'already in use' not in kv_enable.stderr
+  no_log: true
+
+- name: Copy Ansible policy to Vault container
+  ansible.builtin.command:
+    cmd: >
+      docker cp {{ vault_install_dir }}/ansible-policy.hcl vault:/tmp/ansible-policy.hcl
+
+- name: Write Ansible automation policy file
+  ansible.builtin.template:
+    src: ansible-policy.hcl.j2
+    dest: "{{ vault_install_dir }}/ansible-policy.hcl"
+    mode: "0644"
+
+- name: Apply Ansible policy to Vault
+  ansible.builtin.command:
+    cmd: >
+      docker exec -e VAULT_ADDR=http://127.0.0.1:8200
+      -e VAULT_TOKEN={{ vault_root_token }}
+      vault vault policy write {{ vault_ansible_policy }} /tmp/ansible-policy.hcl
+  changed_when: true
+  no_log: true
+
+- name: Create Ansible automation token
+  ansible.builtin.command:
+    cmd: >
+      docker exec -e VAULT_ADDR=http://127.0.0.1:8200
+      -e VAULT_TOKEN={{ vault_root_token }}
+      vault vault token create
+      -policy={{ vault_ansible_policy }}
+      -display-name=ansible-automation
+      -ttl=0 -format=json
+  register: ansible_token_result
+  changed_when: true
+  no_log: true
+
+- name: Parse Ansible token
+  ansible.builtin.set_fact:
+    vault_ansible_token: "{{ (ansible_token_result.stdout | from_json).auth.client_token }}"
+  no_log: true
+
+- name: Save Vault connection details for other playbooks
+  ansible.builtin.copy:
+    content: |
+      ---
+      # Vault connection details – generated by vault-setup
+      # Used by common/vault-integration to auto-connect
+      vault_addr: "http://{{ vault_bind_address }}:{{ vault_port }}"
+      vault_token: "{{ vault_ansible_token }}"
+      vault_kv_mount: "{{ vault_kv_mount }}"
+    dest: "{{ lookup('env', 'HOME') }}/.vault-ansible.yml"
+    mode: "0600"
+  no_log: true
+
+# --- Seed the homelab secret paths (empty structure) ---
+- name: Seed empty secret paths for all playbooks
+  ansible.builtin.command:
+    cmd: >
+      docker exec -e VAULT_ADDR=http://127.0.0.1:8200
+      -e VAULT_TOKEN={{ vault_root_token }}
+      vault vault kv put -mount={{ vault_kv_mount }}
+      homelab/{{ item }} _initialized=true
+  loop:
+    - infrastructure
+    - dify
+    - openclaw
+    - n8n
+    - paperless
+    - vaultwarden
+    - seafile
+    - netbox
+    - librenms
+    - swe-af
+    - claude-n8n-mcp
+    - proxmox
+    - weylus
+    - bambulab
+  register: seed_result
+  changed_when: seed_result.rc == 0
+  failed_when: false
+  no_log: true
+
+- name: Display Vault access information
+  ansible.builtin.debug:
+    msg: |
+      HashiCorp Vault is running!
+
+      Web UI             : http://{{ vault_bind_address }}:{{ vault_port }}/ui
+      API endpoint       : http://{{ vault_bind_address }}:{{ vault_port }}
+      Install dir        : {{ vault_install_dir }}
+      Storage backend    : {{ vault_storage_backend }}
+      Init keys file     : {{ vault_keys_file }}
+
+      Ansible integration:
+        Connection file  : ~/.vault-ansible.yml
+        Policy           : {{ vault_ansible_policy }}
+        KV mount         : {{ vault_kv_mount }}
+        Secret paths     : {{ vault_kv_mount }}/homelab/<service>
+
+      Playbook secret paths:
+        homelab/infrastructure  – domain, Cloudflare, WireGuard, Authelia, Pi-hole
+        homelab/dify            – LiteLLM key, Groq, Gemini, OpenRouter, Cerebras
+        homelab/openclaw        – NVIDIA, Groq, Gemini, DeepSeek API keys
+        homelab/n8n             – owner credentials
+        homelab/paperless       – admin credentials
+        homelab/vaultwarden     – admin token, SMTP credentials
+        homelab/seafile         – admin + DB credentials
+        homelab/netbox          – admin credentials
+        homelab/librenms        – SNMP community, DB password
+        homelab/swe-af          – AI provider API key, GitHub token
+        homelab/claude-n8n-mcp  – n8n MCP token
+        homelab/proxmox         – API password, SSH public key
+        homelab/weylus          – access code
+        homelab/bambulab        – webhook URL
+
+      IMPORTANT: Back up {{ vault_keys_file }} securely!
+      Without the unseal keys, Vault data is irrecoverable.
+
+      Useful commands:
+        export VAULT_ADDR=http://{{ vault_bind_address }}:{{ vault_port }}
+        export VAULT_TOKEN=<root-token>
+        vault kv list secret/homelab/
+        vault kv get secret/homelab/openclaw
