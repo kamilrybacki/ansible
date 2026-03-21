@@ -1,0 +1,28 @@
+---
+# HashiCorp Vault install directory
+vault_install_dir: "/opt/vault"
+
+# Docker image
+vault_image: "hashicorp/vault:1.17"
+
+# Vault listener port (loopback only by default)
+vault_port: 8200
+vault_bind_address: "127.0.0.1"
+
+# Vault storage backend: "file" (simple) or "raft" (HA-capable)
+vault_storage_backend: "file"
+
+# Auto-unseal: store unseal keys and root token on first init
+# Set to false for manual unseal (more secure, but requires operator)
+vault_auto_unseal: true
+vault_keys_file: "/opt/vault/init-keys.json"
+
+# KV v2 secrets engine mount path
+vault_kv_mount: "secret"
+
+# Ansible policy name
+vault_ansible_policy: "ansible-automation"
+
+# Health-check settings
+vault_health_check_retries: 12
+vault_health_check_delay: 5

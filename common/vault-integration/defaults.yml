@@ -1,0 +1,10 @@
+---
+# Default Vault connection settings
+# Overridden by ~/.vault-ansible.yml when it exists
+vault_addr: "http://127.0.0.1:8200"
+vault_token: ""
+vault_kv_mount: "secret"
+
+# The service name determines the Vault path: secret/homelab/<vault_service_name>
+# Each playbook sets this before including vault-integration tasks
+vault_service_name: ""

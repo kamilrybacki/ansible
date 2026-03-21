@@ -1,0 +1,24 @@
+# HashiCorp Vault configuration – managed by Ansible
+
+ui = true
+
+listener "tcp" {
+  address     = "0.0.0.0:8200"
+  tls_disable = 1
+}
+
+{% if vault_storage_backend == 'raft' %}
+storage "raft" {
+  path    = "/vault/data"
+  node_id = "vault-1"
+}
+{% else %}
+storage "file" {
+  path = "/vault/data"
+}
+{% endif %}
+
+api_addr     = "http://{{ vault_bind_address }}:{{ vault_port }}"
+disable_mlock = true
+
+log_level = "info"

@@ -1,0 +1,10 @@
+# Vault policy for Ansible automation – managed by Ansible
+# Grants read/write to all homelab secret paths
+
+path "{{ vault_kv_mount }}/data/homelab/*" {
+  capabilities = ["create", "read", "update", "list"]
+}
+
+path "{{ vault_kv_mount }}/metadata/homelab/*" {
+  capabilities = ["list", "read", "delete"]
+}
