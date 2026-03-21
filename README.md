@@ -54,7 +54,6 @@ Playbooks for securing homelab access, managing secrets, and protecting credenti
 |----------|-------------|-------|
 | [`security/secure-homelab-access`](./security/secure-homelab-access/) | Secure remote access — WireGuard VPN, Authelia 2FA, Caddy HTTPS, Pi-hole DNS, CrowdSec, fail2ban, UFW, Cockpit, Homepage | 9 |
 | [`security/vault-setup`](./security/vault-setup/) | HashiCorp Vault — centralized secrets management for all playbooks | 2 |
-| [`security/vaultwarden-setup`](./security/vaultwarden-setup/) | Vaultwarden — self-hosted Bitwarden-compatible password manager | 2 |
 | [`security/lab-network`](./security/lab-network/) | Lab gateway — dnsmasq DHCP/DNS, NAT, static leases for k8s nodes | — |
 
 ### security/secure-homelab-access
@@ -78,7 +77,7 @@ Deploys a hardened, production-grade remote access stack on a single server. Run
 
 **Subdomains provisioned:** `auth.<domain>`, `home.<domain>`, `cockpit.<domain>`, `wg.<domain>`, `pihole.<domain>`
 
-**Prompts for (14 total):** host IP/SSH credentials, public IP, domain, Let's Encrypt email, SSH port, WireGuard admin password, Authelia credentials, Pi-hole password, Cloudflare API token and tunnel name (both optional).
+**Prompts for (16 total):** host IP/SSH credentials, public IP, domain, Let's Encrypt email, SSH port, WireGuard admin password, Authelia credentials, Pi-hole password, Cloudflare API token and tunnel name (both optional), SMTP username and app password for email notifications (both optional).
 
 **Secrets:** Automatically generated JWT, session, and encryption keys. All credentials written to `~/.homelab-credentials` (mode 0600). When Vault is available, secrets are also stored at `secret/homelab/infrastructure`.
 
@@ -90,17 +89,8 @@ Deploys [HashiCorp Vault](https://www.vaultproject.io/) as the centralized secre
 - **Storage:** file (default) or Raft (HA-capable)
 - **Auto-unseal:** optional — stores unseal keys on disk for automatic restart recovery
 - **Integration:** saves `~/.vault-ansible.yml` with connection details; all other playbooks auto-detect and use Vault when available
-- **Secret paths:** `secret/homelab/<service>` — one path per playbook (infrastructure, dify, openclaw, n8n, paperless, vaultwarden, seafile, netbox, librenms, swe-af)
+- **Secret paths:** `secret/homelab/<service>` — one path per playbook (infrastructure, dify, openclaw, n8n, paperless, seafile, netbox, librenms, swe-af)
 - **Policy:** creates an `ansible-automation` policy with read/write access to all homelab paths
-
-### security/vaultwarden-setup
-
-Deploys [Vaultwarden](https://github.com/dani-garcia/vaultwarden), a lightweight self-hosted Bitwarden-compatible server.
-
-- **Image:** `vaultwarden/server:1.32.7`
-- **Web UI:** port 8080
-- **SMTP email (optional):** supports Gmail, Outlook, Zoho, Fastmail, SendGrid, Mailgun, AWS SES, or custom host/port
-- **Vault path:** `secret/homelab/vaultwarden` (admin_token, smtp_password)
 
 ### security/lab-network
 

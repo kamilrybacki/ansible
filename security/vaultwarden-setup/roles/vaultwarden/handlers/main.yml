@@ -1,6 +1,0 @@
----
-- name: restart vaultwarden
-  community.docker.docker_container:
-    name: "{{ vaultwarden_container_name }}"
-    state: started
-    restart: true

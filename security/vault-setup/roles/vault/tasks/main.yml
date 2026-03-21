@@ -214,7 +214,6 @@
     - openclaw
     - n8n
     - paperless
-    - vaultwarden
     - seafile
     - netbox
     - librenms
@@ -251,7 +250,6 @@
         homelab/openclaw        – NVIDIA, Groq, Gemini, DeepSeek API keys
         homelab/n8n             – owner credentials
         homelab/paperless       – admin credentials
-        homelab/vaultwarden     – admin token, SMTP credentials
         homelab/seafile         – admin + DB credentials
         homelab/netbox          – admin credentials
         homelab/librenms        – SNMP community, DB password

@@ -663,39 +663,6 @@ ansible-playbook security/vault-setup/setup.yml</code></pre>
     </div>
   </div>
 
-  <div class="service" onclick="this.classList.toggle('open')">
-    <div class="service-header">
-      <div><span class="service-name">Vaultwarden</span><span class="service-desc">Self-hosted Bitwarden password manager</span></div>
-      <span class="chevron">&#9654;</span>
-    </div>
-    <div class="service-body">
-      <div class="info-grid">
-        <div class="info-card">
-          <h4>Docker Images</h4>
-          <ul><li><span class="badge badge-image">vaultwarden/server:1.32.7</span></li></ul>
-        </div>
-        <div class="info-card">
-          <h4>Ports</h4>
-          <ul><li><span class="badge badge-port">8080</span> Web UI</li></ul>
-        </div>
-        <div class="info-card">
-          <h4>Vault Secrets</h4>
-          <ul>
-            <li><span class="badge badge-vault">secret/homelab/vaultwarden</span></li>
-            <li>admin_token, smtp_password</li>
-          </ul>
-        </div>
-        <div class="info-card">
-          <h4>Configuration</h4>
-          <ul>
-            <li>SQLite database (embedded)</li>
-            <li>Admin panel at /admin</li>
-            <li>SMTP: gmail, outlook, zoho, fastmail, sendgrid, mailgun, ses, custom</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
 </section>
 
 <!-- Dev Tools -->
@@ -757,7 +724,6 @@ ansible-playbook security/vault-setup/setup.yml</code></pre>
     <tbody style="color:var(--text-dim);">
       <tr><td style="padding:0.4rem 0.8rem;">Grafana</td><td style="padding:0.4rem 0.8rem;">OIDC</td><td style="padding:0.4rem 0.8rem;">Auto-login; GrafanaAdmin role for admin group</td></tr>
       <tr><td style="padding:0.4rem 0.8rem;">Outline</td><td style="padding:0.4rem 0.8rem;">OIDC</td><td style="padding:0.4rem 0.8rem;">Auto-wired to Authelia on deployment</td></tr>
-      <tr><td style="padding:0.4rem 0.8rem;">Vaultwarden</td><td style="padding:0.4rem 0.8rem;">OIDC (SSO)</td><td style="padding:0.4rem 0.8rem;">Requires Vaultwarden v1.30+</td></tr>
       <tr><td style="padding:0.4rem 0.8rem;">Paperless-ngx</td><td style="padding:0.4rem 0.8rem;">Header auth</td><td style="padding:0.4rem 0.8rem;"><code>PAPERLESS_ENABLE_HTTP_REMOTE_USER</code></td></tr>
       <tr><td style="padding:0.4rem 0.8rem;">NetBox</td><td style="padding:0.4rem 0.8rem;">Header auth</td><td style="padding:0.4rem 0.8rem;"><code>REMOTE_AUTH_ENABLED</code></td></tr>
       <tr><td style="padding:0.4rem 0.8rem;">LibreNMS</td><td style="padding:0.4rem 0.8rem;">Header auth</td><td style="padding:0.4rem 0.8rem;"><code>AUTH_MECHANISM=header</code></td></tr>
@@ -789,7 +755,6 @@ ansible-playbook security/vault-setup/setup.yml</code></pre>
     <li><code>secret/homelab/paperless</code> &mdash; Paperless-ngx</li>
     <li><code>secret/homelab/seafile</code> &mdash; Seafile</li>
     <li><code>secret/homelab/infrastructure</code> &mdash; Secure Homelab Access</li>
-    <li><code>secret/homelab/vaultwarden</code> &mdash; Vaultwarden</li>
     <li><code>secret/homelab/librenms</code> &mdash; LibreNMS</li>
     <li><code>secret/homelab/netbox</code> &mdash; Netbox</li>
   </ul>

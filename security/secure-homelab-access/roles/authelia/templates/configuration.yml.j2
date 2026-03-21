@@ -120,16 +120,4 @@ identity_providers:
         grant_types: [authorization_code]
         userinfo_signed_response_alg: none
 
-      # Vaultwarden — SSO (requires Vaultwarden v1.30+)
-      - client_id: vaultwarden
-        client_name: Vaultwarden
-        client_secret: "{{ authelia_oidc_client_secret_vaultwarden_hash | default('') }}"
-        public: false
-        authorization_policy: one_factor
-        scopes: [openid, profile, email]
-        redirect_uris:
-          - "https://{{ vaultwarden_hostname | default('vault') }}.{{ domain }}/identity/connect/oidc-signin"
-        response_types: [code]
-        grant_types: [authorization_code]
-        userinfo_signed_response_alg: none
 {% endif %}
