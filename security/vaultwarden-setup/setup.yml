@@ -189,6 +189,7 @@
             block: |
               http://{{ vaultwarden_hostname }}.{{ saved_domain }} {
                 import rate_limit
+                import proxy_headers
                 reverse_proxy http://{{ _target_host_ip }}:{{ vaultwarden_port }}
               }
           notify: reload caddy

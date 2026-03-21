@@ -96,6 +96,7 @@
             block: |
               http://{{ stirling_hostname }}.{{ saved_domain }} {
                 import rate_limit
+                import proxy_headers
                 import authelia
                 reverse_proxy http://{{ _target_host_ip }}:{{ stirling_port }}
               }

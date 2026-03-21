@@ -136,6 +136,7 @@
             block: |
               http://{{ ha_hostname }}.{{ saved_domain }} {
                 import rate_limit
+                import proxy_headers
                 reverse_proxy http://{{ _target_host_ip }}:{{ ha_port }}
               }
           notify: reload caddy

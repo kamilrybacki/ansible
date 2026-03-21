@@ -143,6 +143,7 @@
             block: |
               http://{{ netbox_hostname }}.{{ saved_domain }} {
                 import rate_limit
+                import proxy_headers
                 import authelia
                 reverse_proxy http://{{ _target_host_ip }}:{{ netbox_port }}
               }

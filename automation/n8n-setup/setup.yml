@@ -142,6 +142,7 @@
             block: |
               http://{{ n8n_hostname }}.{{ saved_domain }} {
                 import rate_limit
+                import proxy_headers
                 import authelia
                 reverse_proxy http://{{ _n8n_host_ip }}:{{ n8n_port }}
               }
