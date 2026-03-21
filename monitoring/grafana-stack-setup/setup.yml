@@ -66,6 +66,14 @@
             if hostvars['localhost']['_homelab_vars_stat'].stat.exists
             else ''
           }}
+        grafana_oidc_client_secret: >-
+          {{ hostvars['localhost']['saved_authelia_oidc_client_secret_grafana'] | default('') }}
+        grafana_oidc_auth_domain: >-
+          {{
+            'auth.' + hostvars['localhost']['saved_domain']
+            if hostvars['localhost']['_homelab_vars_stat'].stat.exists
+            else ''
+          }}
 
 - name: Install Docker and deploy Grafana stack
   hosts: grafana_stack_hosts

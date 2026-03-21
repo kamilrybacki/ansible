@@ -23,16 +23,31 @@ authentication_backend:
 
 access_control:
   default_policy: "deny"
+  networks:
+    - name: vpn_and_lan
+      networks:
+        - "{{ vpn_subnet }}"   # WireGuard VPN clients
+        - "10.0.0.0/8"         # LAN (homelab nodes)
+        - "192.168.0.0/16"     # LAN (home network)
   rules:
+    # VPN / LAN: single factor — no TOTP required when on WireGuard or home network
+    - domain: "*.{{ domain }}"
+      networks: [vpn_and_lan]
+      policy: "one_factor"
+    # WAN: full two-factor
     - domain: "*.{{ domain }}"
       policy: "two_factor"
 
 session:
   name: "authelia_session"
   secret: "{{ authelia_session_secret }}"
+  expiration: "720h"    # 30 days
+  inactivity: "720h"    # reset on activity
+  remember_me: "720h"   # stay logged in for 30 days
   cookies:
     - domain: "{{ domain }}"
       authelia_url: "https://{{ subdomain_auth }}.{{ domain }}"
+      default_redirection_url: "https://{{ subdomain_home }}.{{ domain }}"
 
 storage:
   encryption_key: "{{ authelia_storage_encryption_key }}"
@@ -51,3 +66,60 @@ regulation:
   max_retries: 3
   find_time: "2m"
   ban_time: "1h"
+
+# =============================================================================
+# OIDC Provider
+# Authelia acts as the identity provider. Services that support OIDC redirect
+# here for login; if a session already exists the user is auto-approved with
+# no credential prompt.
+# =============================================================================
+{% if authelia_oidc_hmac_secret | default('') %}
+identity_providers:
+  oidc:
+    hmac_secret: "{{ authelia_oidc_hmac_secret }}"
+    jwks:
+      - key: |
+          {{ authelia_oidc_jwk_key | indent(10) }}
+        algorithm: RS256
+
+    clients:
+
+      # Grafana — Generic OAuth2/OIDC
+      - client_id: grafana
+        client_name: Grafana
+        client_secret: "{{ authelia_oidc_client_secret_grafana_hash | default('') }}"
+        public: false
+        authorization_policy: one_factor
+        scopes: [openid, profile, email, groups]
+        redirect_uris:
+          - "https://{{ grafana_hostname | default('grafana') }}.{{ domain }}/login/generic_oauth"
+        response_types: [code]
+        grant_types: [authorization_code]
+        userinfo_signed_response_alg: none
+
+      # Outline — built-in OIDC support
+      - client_id: outline
+        client_name: Outline
+        client_secret: "{{ authelia_oidc_client_secret_outline_hash | default('') }}"
+        public: false
+        authorization_policy: one_factor
+        scopes: [openid, profile, email]
+        redirect_uris:
+          - "https://{{ outline_hostname | default('outline') }}.{{ domain }}/auth/oidc.callback"
+        response_types: [code]
+        grant_types: [authorization_code]
+        userinfo_signed_response_alg: none
+
+      # Vaultwarden — SSO (requires Vaultwarden v1.30+)
+      - client_id: vaultwarden
+        client_name: Vaultwarden
+        client_secret: "{{ authelia_oidc_client_secret_vaultwarden_hash | default('') }}"
+        public: false
+        authorization_policy: one_factor
+        scopes: [openid, profile, email]
+        redirect_uris:
+          - "https://{{ vaultwarden_hostname | default('vault') }}.{{ domain }}/identity/connect/oidc-signin"
+        response_types: [code]
+        grant_types: [authorization_code]
+        userinfo_signed_response_alg: none
+{% endif %}

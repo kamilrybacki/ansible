@@ -40,6 +40,10 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
+      # ── Authelia header SSO ─────────────────────────────────────────────────
+      # Caddy forward_auth injects Remote-User; LibreNMS reads it directly.
+      AUTH_MECHANISM: "header"
+      AUTH_HEADER: "REMOTE_USER"
     volumes:
       - librenms_data:/data
     depends_on:

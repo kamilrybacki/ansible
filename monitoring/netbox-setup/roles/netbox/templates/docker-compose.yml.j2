@@ -30,6 +30,14 @@ services:
 {% if netbox_public_url | length > 0 %}
       CSRF_TRUSTED_ORIGINS: "{{ netbox_public_url }}"
 {% endif %}
+      # ── Authelia header SSO ─────────────────────────────────────────────────
+      # Caddy's forward_auth passes Remote-User from Authelia; NetBox trusts
+      # it and auto-creates/logs in the user.
+      REMOTE_AUTH_ENABLED: "True"
+      REMOTE_AUTH_BACKEND: "netbox.authentication.RemoteUserBackend"
+      REMOTE_AUTH_HEADER: "HTTP_REMOTE_USER"
+      REMOTE_AUTH_AUTO_CREATE_USER: "True"
+      REMOTE_AUTH_DEFAULT_PERMISSIONS: "{}"
     volumes:
       - {{ netbox_data_dir }}/media:/opt/netbox/netbox/media
       - {{ netbox_data_dir }}/reports:/opt/netbox/netbox/reports

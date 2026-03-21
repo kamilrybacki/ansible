@@ -89,6 +89,7 @@
     <a href="#files">Files &amp; Storage</a>
     <a href="#security">Security</a>
     <a href="#dev-tools">Dev Tools</a>
+    <a href="#sso">SSO</a>
     <a href="#vault">Vault Integration</a>
   </div>
 </nav>
@@ -731,6 +732,51 @@ ansible-playbook security/vault-setup/setup.yml</code></pre>
 </section>
 
 <!-- Vault Integration -->
+<section id="sso" class="vault-section">
+  <h2>Single Sign-On (SSO)</h2>
+  <p>Authenticate once — access everything. Authelia serves as the central identity provider for the entire homelab.</p>
+
+  <h3 style="margin-top:1rem;margin-bottom:0.5rem;">How it works</h3>
+  <ul style="color:var(--text-dim);padding-left:1.5rem;margin-bottom:1rem;">
+    <li><strong>WireGuard / LAN:</strong> Authelia requires only one factor (username + password). No TOTP prompt.</li>
+    <li><strong>WAN:</strong> Full two-factor (password + TOTP) as normal.</li>
+    <li><strong>Session duration:</strong> 30 days — log in once, stay logged in.</li>
+    <li><strong>OIDC services:</strong> After logging in to Authelia once, clicking any OIDC-connected service auto-creates your session with no additional credential prompt.</li>
+    <li><strong>Header-auth services:</strong> Caddy injects the <code>Remote-User</code> header after Authelia validates you; the service auto-logs you in.</li>
+  </ul>
+
+  <h3 style="margin-top:1rem;margin-bottom:0.5rem;">Service SSO method</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+    <thead>
+      <tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:0.4rem 0.8rem;">Service</th>
+        <th style="text-align:left;padding:0.4rem 0.8rem;">Method</th>
+        <th style="text-align:left;padding:0.4rem 0.8rem;">Notes</th>
+      </tr>
+    </thead>
+    <tbody style="color:var(--text-dim);">
+      <tr><td style="padding:0.4rem 0.8rem;">Grafana</td><td style="padding:0.4rem 0.8rem;">OIDC</td><td style="padding:0.4rem 0.8rem;">Auto-login; GrafanaAdmin role for admin group</td></tr>
+      <tr><td style="padding:0.4rem 0.8rem;">Outline</td><td style="padding:0.4rem 0.8rem;">OIDC</td><td style="padding:0.4rem 0.8rem;">Auto-wired to Authelia on deployment</td></tr>
+      <tr><td style="padding:0.4rem 0.8rem;">Vaultwarden</td><td style="padding:0.4rem 0.8rem;">OIDC (SSO)</td><td style="padding:0.4rem 0.8rem;">Requires Vaultwarden v1.30+</td></tr>
+      <tr><td style="padding:0.4rem 0.8rem;">Paperless-ngx</td><td style="padding:0.4rem 0.8rem;">Header auth</td><td style="padding:0.4rem 0.8rem;"><code>PAPERLESS_ENABLE_HTTP_REMOTE_USER</code></td></tr>
+      <tr><td style="padding:0.4rem 0.8rem;">NetBox</td><td style="padding:0.4rem 0.8rem;">Header auth</td><td style="padding:0.4rem 0.8rem;"><code>REMOTE_AUTH_ENABLED</code></td></tr>
+      <tr><td style="padding:0.4rem 0.8rem;">LibreNMS</td><td style="padding:0.4rem 0.8rem;">Header auth</td><td style="padding:0.4rem 0.8rem;"><code>AUTH_MECHANISM=header</code></td></tr>
+      <tr><td style="padding:0.4rem 0.8rem;">Uptime Kuma, n8n, Dify, Stirling-PDF</td><td style="padding:0.4rem 0.8rem;">Authelia portal</td><td style="padding:0.4rem 0.8rem;">One login to Authelia, no native SSO</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:1rem;margin-bottom:0.5rem;">OIDC endpoints</h3>
+  <ul style="color:var(--text-dim);padding-left:1.5rem;font-family:monospace;font-size:0.85rem;">
+    <li>Authorization: <code>https://auth.&lt;domain&gt;/api/oidc/authorization</code></li>
+    <li>Token: <code>https://auth.&lt;domain&gt;/api/oidc/token</code></li>
+    <li>Userinfo: <code>https://auth.&lt;domain&gt;/api/oidc/userinfo</code></li>
+    <li>Discovery: <code>https://auth.&lt;domain&gt;/.well-known/openid-configuration</code></li>
+  </ul>
+
+  <h3 style="margin-top:1rem;margin-bottom:0.5rem;">Adding a new service</h3>
+  <p style="color:var(--text-dim);">To add another OIDC client, add it to <code>security/secure-homelab-access/roles/authelia/templates/configuration.yml.j2</code> under <code>identity_providers.oidc.clients</code> and re-run the secure-homelab-access playbook. The client secret is auto-generated and saved to <code>~/.homelab-setup-vars.yml</code>.</p>
+</section>
+
 <section id="vault" class="vault-section">
   <h2>Vault Integration</h2>
   <p>All playbooks optionally integrate with HashiCorp Vault for centralized secret management. When Vault is available (<code>~/.vault-ansible.yml</code> exists), secrets are automatically loaded before prompts and stored after setup.</p>

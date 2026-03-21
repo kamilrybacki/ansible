@@ -29,11 +29,27 @@
     volumes:
       - "{{ vaultwarden_data_dir }}:/data"
   vars:
-    _vw_base_env:
-      SIGNUPS_ALLOWED: "false"
-      ADMIN_TOKEN: "{{ _vw_hashed_token }}"
-      ROCKET_PORT: "80"
-      DOMAIN: "{{ vaultwarden_public_url | default('') }}"
+    _vw_base_env: >-
+      {{
+        {
+          'SIGNUPS_ALLOWED': 'false',
+          'ADMIN_TOKEN':     _vw_hashed_token,
+          'ROCKET_PORT':     '80',
+          'DOMAIN':          vaultwarden_public_url | default('')
+        } | combine(
+          {
+            'SSO_ENABLED':    'true',
+            'SSO_ONLY':       'false',
+            'SSO_AUTHORITY':  'https://' + vaultwarden_oidc_auth_domain,
+            'SSO_CLIENT_ID':  'vaultwarden',
+            'SSO_CLIENT_SECRET': vaultwarden_oidc_client_secret,
+            'SSO_PKCE':       'true',
+            'SSO_SCOPES':     'openid profile email'
+          }
+          if vaultwarden_oidc_client_secret | default('') | length > 0
+          else {}
+        )
+      }}
     _vw_smtp_env: >-
       {{
         {

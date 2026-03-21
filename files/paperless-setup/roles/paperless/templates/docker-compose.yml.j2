@@ -47,6 +47,11 @@ services:
 {% if paperless_public_url | length > 0 %}
       PAPERLESS_URL: "{{ paperless_public_url }}"
 {% endif %}
+      # ── Authelia header SSO ─────────────────────────────────────────────────
+      # Caddy's forward_auth passes Remote-User from Authelia; Paperless trusts
+      # it and creates/resumes a session automatically.
+      PAPERLESS_ENABLE_HTTP_REMOTE_USER: "true"
+      PAPERLESS_HTTP_REMOTE_USER_HEADER_NAME: "HTTP_REMOTE_USER"
     networks:
       - paperless-net
 

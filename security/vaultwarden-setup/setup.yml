@@ -136,6 +136,14 @@
         vaultwarden_smtp_from: "{{ smtp_from }}"
         vaultwarden_smtp_username: "{{ smtp_username }}"
         vaultwarden_smtp_password: "{{ smtp_password }}"
+        vaultwarden_oidc_client_secret: >-
+          {{ hostvars['localhost']['saved_authelia_oidc_client_secret_vaultwarden'] | default('') }}
+        vaultwarden_oidc_auth_domain: >-
+          {{
+            'auth.' + hostvars['localhost']['saved_domain']
+            if hostvars['localhost']['_homelab_vars_stat'].stat.exists
+            else ''
+          }}
       no_log: true
 
 - name: Store Vaultwarden secrets to Vault

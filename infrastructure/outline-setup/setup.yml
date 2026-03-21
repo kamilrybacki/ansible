@@ -77,21 +77,27 @@
     # ── OIDC (leave blank to skip) ────────────────────────────────────────────
     - name: outline_oidc_client_id
       prompt: |
-        [7/9] OIDC client ID (leave blank to skip)
-              Authelia example: outline
-      default: ""
+        [7/9] OIDC client ID (leave blank to auto-configure with Authelia)
+              Authelia: outline
+      default: "{{ hostvars['localhost']['saved_authelia_oidc_client_secret_outline'] | default('') | ternary('outline', '') }}"
       private: false
 
     - name: outline_oidc_client_secret
-      prompt: "[8/9] OIDC client secret (leave blank to skip)"
-      default: ""
+      prompt: "[8/9] OIDC client secret (leave blank to auto-configure with Authelia)"
+      default: "{{ hostvars['localhost']['saved_authelia_oidc_client_secret_outline'] | default('') }}"
       private: true
 
     - name: outline_oidc_base_url
       prompt: |
-        [9/9] OIDC provider base URL (leave blank to skip)
+        [9/9] OIDC provider base URL (leave blank to auto-configure with Authelia)
               Authelia example: https://auth.yourdomain.com
-      default: ""
+      default: >-
+        {{
+          'https://auth.' + hostvars['localhost']['saved_domain']
+          if hostvars['localhost']['_homelab_vars_stat'].stat.exists and
+             hostvars['localhost']['saved_authelia_oidc_client_secret_outline'] | default('') | length > 0
+          else ''
+        }}
       private: false
 
   tasks:
@@ -118,7 +124,7 @@
         outline_smtp_password: "{{ outline_smtp_password }}"
         outline_smtp_from_email: "{{ outline_smtp_username if outline_smtp_username | length > 0 else '' }}"
         outline_smtp_reply_to_email: "{{ outline_smtp_username if outline_smtp_username | length > 0 else '' }}"
-        # OIDC
+        # OIDC — auto-wired to Authelia when saved vars are present
         outline_oidc_client_id: "{{ outline_oidc_client_id }}"
         outline_oidc_client_secret: "{{ outline_oidc_client_secret }}"
         outline_oidc_auth_uri: >-
@@ -136,6 +142,7 @@
             outline_oidc_base_url.rstrip('/') + '/api/oidc/userinfo'
             if outline_oidc_base_url | length > 0 else ''
           }}
+        outline_oidc_display_name: "Authelia"
         # Reverse proxy / integration
         outline_bind_address: "{{ '127.0.0.1' if target_host_ip in ['localhost', '127.0.0.1', '::1'] else '0.0.0.0' }}"
         saved_domain: "{{ hostvars['localhost']['saved_domain'] | default('') }}"
