@@ -134,8 +134,8 @@
         body_format: json
         body:
           policy: |
-            path "secret/data/n8n" { capabilities = ["read"] }
-            path "secret/metadata/n8n" { capabilities = ["read", "list"] }
+            path "secret/data/homelab/n8n" { capabilities = ["read"] }
+            path "secret/metadata/homelab/n8n" { capabilities = ["read", "list"] }
         status_code: [200, 204]
       no_log: true
 
