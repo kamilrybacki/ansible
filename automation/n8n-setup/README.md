@@ -33,20 +33,33 @@ vault kv patch secret/homelab/n8n librenms_token=<value>
 vault kv patch secret/homelab/n8n my_new_key=<value>
 ```
 
-## Vault External Secrets Integration
+## Vault → n8n Variable Sync (`vault-n8n-sync` sidecar)
 
-At deploy time the playbook automatically:
+n8n's External Secrets and Variables APIs are both enterprise-only in 2.x.
+The `N8N_VAR_*` environment variable mechanism IS community edition — any env var
+prefixed `N8N_VAR_` is readable in workflows via `$env.N8N_VAR_KEY_NAME`.
 
-1. Creates a read-only Vault policy `n8n-secrets-reader` scoped to `secret/data/homelab/n8n`
-2. Generates a scoped reader token and configures n8n's native External Secrets integration against `http://<vault-host>:8200`
-3. Secrets are available in all workflow nodes immediately after the first poll
+The `n8n-vault-shim` sidecar container automates this:
 
-Reference secrets in workflow nodes:
+1. Polls `secret/homelab/n8n` in Vault every 300 s (configurable)
+2. Compares the secrets with the current `N8N_VAR_*` env vars on the n8n container
+3. If anything changed, checks whether any workflow executions are active — if yes, **skips and retries next cycle** to avoid interrupting running jobs
+4. Otherwise gracefully recreates the n8n container with the updated env vars (~30 s downtime)
+
+Reference secrets in workflow nodes (Set node expressions or Code nodes):
 
 ```
-={{ $secrets.vault.netbox_token }}
-={{ $secrets.vault.librenms_token }}
-={{ $secrets.vault.my_new_key }}
+={{ $env.N8N_VAR_netbox_token }}
+={{ $env.N8N_VAR_librenms_token }}
+={{ $env.N8N_VAR_my_new_key }}
+```
+
+In Code nodes use `process.env.N8N_VAR_KEY_NAME` instead of `$env.*`.
+
+To add a new secret and have it available in n8n within one poll interval:
+
+```bash
+vault kv patch secret/homelab/n8n my_new_key=<value>
 ```
 
 Poll interval is 300 seconds by default, configurable via `n8n_external_secrets_update_interval` in `group_vars/all.yml`.

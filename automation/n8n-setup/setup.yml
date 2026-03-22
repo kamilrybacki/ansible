@@ -168,6 +168,7 @@
   roles:
     - docker
     - n8n
+    - n8n-vault-shim
 
 - name: Integrate n8n with secure homelab (Caddy + Cloudflare Tunnel + Pi-hole + Homepage)
   hosts: localhost

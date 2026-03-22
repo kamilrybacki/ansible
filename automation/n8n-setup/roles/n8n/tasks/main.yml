@@ -144,8 +144,8 @@
            - For private repos: store a PAT in Vault before deploying:
                vault kv put secret/n8n workflows_repo_token=<PAT>
         NOTE: Service secrets live in Vault at secret/n8n and are available in
-        workflows as ={{ $secrets.vault.KEY_NAME }} via the External Secrets
-        integration configured above. To add a new secret:
+        workflows as ={{ $env.N8N_VAR_KEY_NAME }} (community edition — External Secrets
+        integration requires enterprise license). To add a new secret:
           vault kv patch secret/n8n my_new_token=<value>
         n8n will pick it up within {{ n8n_external_secrets_update_interval }}s automatically.
         3. Go to Settings > Instance-level MCP.
