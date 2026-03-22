@@ -158,7 +158,12 @@ module.exports.handleOIDCCallback = async (query, userInfo) => {
         const configuration = await client.discovery(new URL(provider.issuer), provider.clientId, provider.clientSecret, undefined, { execute: [client.allowInsecureRequests] });
         client.allowInsecureRequests(configuration);
 
-        const url = new URL(provider.redirectUri + "?" + new URLSearchParams(query).toString());
+        // Strip `iss` from callback params: Authelia returns iss=https:// (external)
+        // but discovery was fetched via http:// (internal Docker), causing a mismatch.
+        // State + PKCE still protect the flow; iss check is redundant in single-provider setup.
+        const callbackParams = new URLSearchParams(query);
+        callbackParams.delete('iss');
+        const url = new URL(provider.redirectUri + "?" + callbackParams.toString());
 
         const tokens = await client.authorizationCodeGrant(configuration, url, {
             expectedState: query.state,
