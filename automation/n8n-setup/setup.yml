@@ -9,6 +9,16 @@
 #     -i automation/n8n-setup/inventory/hosts.ini \
 #     --ask-become-pass
 #
+# Vault secrets (store before running):
+#   vault kv put secret/n8n \
+#     owner_password=<password> \
+#     netbox_token=<netbox-api-token> \
+#     librenms_token=<librenms-api-token> \
+#     workflows_repo_token=<github-pat>   # only if repo is private
+#
+# Service tokens are injected as N8N_VAR_* env vars and accessed in workflows
+# via ={{ $vars.TOKEN_NAME }}. Never hardcode tokens in workflow JSON files.
+#
 # After deployment, retrieve the MCP Access Token from the n8n UI
 # and run the claude-n8n-mcp playbook to connect Claude Code.
 # =============================================================================
@@ -84,6 +94,8 @@
         n8n_owner_last_name: "User"
         n8n_bind_address: "{{ '127.0.0.1' if n8n_host_ip in ['localhost', '127.0.0.1', '::1'] else '0.0.0.0' }}"
         n8n_workflows_repo_token: "{{ hostvars['localhost']['_vault_secrets']['workflows_repo_token'] | default('') }}"
+        n8n_netbox_token: "{{ hostvars['localhost']['_vault_secrets']['netbox_token'] | default('') }}"
+        n8n_librenms_token: "{{ hostvars['localhost']['_vault_secrets']['librenms_token'] | default('') }}"
         n8n_public_url: >-
           {{
             'https://' + n8n_hostname + '.' + hostvars['localhost']['saved_domain']

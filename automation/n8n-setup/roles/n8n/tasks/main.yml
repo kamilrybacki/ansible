@@ -28,6 +28,8 @@
       N8N_PORT: "5678"
       N8N_PROTOCOL: "{{ 'https' if n8n_public_url | default('') != '' else 'http' }}"
       N8N_SOURCE_CONTROL_ENABLED: "true"
+      N8N_VAR_NETBOX_TOKEN: "{{ n8n_netbox_token | default('') }}"
+      N8N_VAR_LIBRENMS_TOKEN: "{{ n8n_librenms_token | default('') }}"
     _n8n_public_url_env: "{{ {'N8N_EDITOR_BASE_URL': n8n_public_url, 'WEBHOOK_URL': n8n_public_url} if n8n_public_url | default('') != '' else {} }}"
 
 - name: Wait for n8n to become reachable
@@ -133,6 +135,10 @@
              to the repository (write access required for push/backup).
            - For private repos: store a PAT in Vault before deploying:
                vault kv put secret/n8n workflows_repo_token=<PAT>
+        NOTE: Service API tokens (Netbox, LibreNMS, etc.) must be stored in Vault
+        and are injected as n8n variables. Workflows reference them via $vars.*
+        and must NOT hardcode them directly. Store with:
+          vault kv put secret/n8n netbox_token=<token> librenms_token=<token>
         3. Go to Settings > Instance-level MCP.
         4. Copy your MCP Access Token from the Access Token tab.
         5. Run the claude-n8n-mcp playbook to connect Claude Code:
