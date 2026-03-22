@@ -26,6 +26,17 @@
     src: "{{ nexterm_data_dir }}/.encryption_key"
   register: _encryption_key_b64
 
+- name: Authorize Nexterm SSH key on all target hosts
+  ansible.builtin.shell: |
+    PUBKEY="{{ lookup('file', nexterm_ssh_key_path | expanduser ~ '.pub') }}"
+    ssh -o StrictHostKeyChecking=no {{ item.username }}@{{ item.ip }} \
+      "mkdir -p ~/.ssh && chmod 700 ~/.ssh && \
+       grep -qF '${PUBKEY}' ~/.ssh/authorized_keys 2>/dev/null || \
+       echo '${PUBKEY}' >> ~/.ssh/authorized_keys"
+  loop: "{{ nexterm_connections }}"
+  changed_when: false
+  become: false
+
 - name: Create patches directory for Nexterm overrides
   ansible.builtin.file:
     path: "{{ nexterm_data_dir }}/patches"
@@ -115,7 +126,7 @@
       ansible.builtin.set_fact:
         _nexterm_token: "{{ _login.json.token }}"
 
-    - name: Create homelab SSH key identity
+    - name: Create SSH identity for each host
       ansible.builtin.uri:
         url: "http://localhost:{{ nexterm_port }}/api/identities"
         method: PUT
@@ -123,12 +134,13 @@
           Authorization: "Bearer {{ _nexterm_token }}"
         body_format: json
         body:
-          name: "homelab-key"
+          name: "homelab-key-{{ item.name }}"
           type: "ssh"
-          username: "{{ nexterm_connections[0].username }}"
+          username: "{{ item.username }}"
           sshKey: "{{ _ssh_key_b64.content | b64decode }}"
         status_code: 200
-      register: _identity
+      loop: "{{ nexterm_connections }}"
+      register: _identities
 
     - name: Create SSH connection for each host
       ansible.builtin.uri:
@@ -138,15 +150,15 @@
           Authorization: "Bearer {{ _nexterm_token }}"
         body_format: json
         body:
-          name: "{{ item.name }}"
+          name: "{{ item.0.name }}"
           type: "server"
-          identities: ["{{ _identity.json.id | int }}"]
+          identities: ["{{ item.1.json.id | int }}"]
           config:
             protocol: "ssh"
-            ip: "{{ item.ip }}"
-            port: "{{ item.port | int }}"
+            ip: "{{ item.0.ip }}"
+            port: "{{ item.0.port | int }}"
         status_code: 200
-      loop: "{{ nexterm_connections }}"
+      loop: "{{ nexterm_connections | zip(_identities.results) | list }}"
 
     - name: Write bootstrap sentinel
       ansible.builtin.copy:

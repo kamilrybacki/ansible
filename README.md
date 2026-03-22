@@ -300,16 +300,25 @@ Provisions [Claude Code](https://claude.ai/code) with a curated set of plugins, 
 
 ### dev-tools/nexterm-setup
 
-Deploys [Nexterm](https://github.com/gnmyt/nexterm) — a lightweight web-based SSH/terminal manager for managing multiple homelab hosts.
+Deploys [Nexterm](https://github.com/gnmyt/nexterm) — a web-based SSH/terminal manager for unified access to multiple homelab hosts.
 
+**Stack & Features:**
 - **Image:** `germannewsmaker/nexterm:latest`
 - **Web UI:** port 6989 (proxied via Caddy at `nexterm.<domain>`)
-- **SSO:** Authelia OIDC — Nexterm's internal login is disabled; users authenticated via Authelia are auto-logged in (no separate login prompt)
-- **Auto-provisioning:** creates admin account, SSH key identity, and host connections via Nexterm REST API on first run (sentinel-gated)
-- **Connections auto-added:** all hosts defined in `nexterm_connections` (lw-main, lw-s1 by default)
-- **Encryption:** generates 64-char hex `ENCRYPTION_KEY` on first run, stored at `/opt/homelab/nexterm/.encryption_key`
-- **Homepage integration:** adds Nexterm card to the Homepage service dashboard
-- **Note:** ships a patched `oidc.js` (mounted read-only into the container) that sets `allowInsecureRequests: true` on the `openid-client` discovery call — required because Caddy serves HTTP-only internally and TLS terminates at Cloudflare
+- **Auth:** Authelia OIDC SSO — no internal login; users authenticated via 2FA (homelab credentials) are auto-logged in
+- **Per-host SSH identities:** creates named identities (`homelab-key-<hostname>`) allowing different SSH usernames per target host
+- **Auto-provisioning:** creates admin account, per-host SSH identities, and connections via Nexterm API on first run (skipped via sentinel on re-runs)
+- **Connections auto-added:** all hosts in `nexterm_connections` list pre-configured (lw-main, lw-s1 by default)
+- **Encryption:** generates 64-char hex encryption key on first run at `/opt/homelab/nexterm/.encryption_key` (persists across restarts)
+- **Homepage integration:** adds Nexterm service card to the Homepage dashboard
+- **OIDC protocol fix:** ships patched `oidc.js` (mounted read-only) to handle HTTP/HTTPS issuer mismatch — Caddy serves HTTP internally while Authelia derives issuer from `X-Forwarded-Proto` (HTTPS via Cloudflare)
+
+**Prerequisites:**
+- `security/secure-homelab-access` running first (provides Authelia OIDC, Caddy, Pi-hole)
+- SSH public key installed in `~/.ssh/authorized_keys` on all target hosts before playbook run
+- Each target host listed in `nexterm_connections` with its SSH username
+
+**Vault path:** None (Authelia client secret stored in secure-homelab-access secrets)
 
 ### dev-tools/vault-mcp-setup
 
