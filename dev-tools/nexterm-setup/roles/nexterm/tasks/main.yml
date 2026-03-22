@@ -26,6 +26,18 @@
     src: "{{ nexterm_data_dir }}/.encryption_key"
   register: _encryption_key_b64
 
+- name: Create patches directory for Nexterm overrides
+  ansible.builtin.file:
+    path: "{{ nexterm_data_dir }}/patches"
+    state: directory
+    mode: "0755"
+
+- name: Patch Nexterm OIDC controller to allow HTTP issuers (internal network)
+  ansible.builtin.copy:
+    src: oidc.js
+    dest: "{{ nexterm_data_dir }}/patches/oidc.js"
+    mode: "0644"
+
 - name: Pull Nexterm Docker image
   community.docker.docker_image:
     name: "{{ nexterm_image }}"
@@ -41,6 +53,7 @@
       - "{{ nexterm_bind_address }}:{{ nexterm_port }}:6989"
     volumes:
       - "{{ nexterm_data_dir }}:/app/data"
+      - "{{ nexterm_data_dir }}/patches/oidc.js:/app/server/controllers/oidc.js:ro"
     dns_servers:
       - "{{ pihole_dns_ip }}"
     networks:

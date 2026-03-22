@@ -141,4 +141,17 @@ identity_providers:
         grant_types: [authorization_code]
         userinfo_signed_response_alg: none
 
+      # Nexterm — web SSH terminal manager
+      - client_id: nexterm
+        client_name: Nexterm
+        client_secret: "{{ authelia_oidc_client_secret_nexterm_hash | default('') }}"
+        public: false
+        authorization_policy: one_factor
+        scopes: [openid, profile, email]
+        redirect_uris:
+          - "https://{{ nexterm_hostname | default('nexterm') }}.{{ domain }}/api/auth/oidc/callback"
+        response_types: [code]
+        grant_types: [authorization_code]
+        userinfo_signed_response_alg: none
+
 {% endif %}

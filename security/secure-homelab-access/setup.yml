@@ -306,7 +306,7 @@
         python3 -c "
         import secrets, string
         chars = string.ascii_letters + string.digits
-        for _ in range(4):
+        for _ in range(5):
             print(''.join(secrets.choice(chars) for _ in range(64)))
         "
       register: _oidc_secrets_raw
@@ -327,8 +327,34 @@
         - { key: oidc_client_secret_grafana,      value: "{{ _oidc_secrets_raw.stdout_lines[1] }}" }
         - { key: oidc_client_secret_outline,      value: "{{ _oidc_secrets_raw.stdout_lines[2] }}" }
         - { key: oidc_client_secret_vault,        value: "{{ _oidc_secrets_raw.stdout_lines[3] }}" }
+        - { key: oidc_client_secret_nexterm,      value: "{{ _oidc_secrets_raw.stdout_lines[4] }}" }
       no_log: true
       when: not _oidc_secrets_stat.stat.exists
+      tags: [always]
+
+    - name: Ensure nexterm OIDC secret file exists (added after initial deploy)
+      ansible.builtin.shell: |
+        python3 -c "
+        import secrets, string
+        chars = string.ascii_letters + string.digits
+        print(''.join(secrets.choice(chars) for _ in range(64)))
+        "
+      register: _nexterm_secret_gen
+      changed_when: true
+      no_log: true
+      args:
+        creates: "{{ authelia_data_dir }}/secrets/oidc_client_secret_nexterm"
+      tags: [always]
+
+    - name: Write nexterm OIDC secret file if missing
+      ansible.builtin.copy:
+        content: "{{ _nexterm_secret_gen.stdout | trim }}"
+        dest: "{{ authelia_data_dir }}/secrets/oidc_client_secret_nexterm"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      when: _nexterm_secret_gen is changed
       tags: [always]
 
     - name: Generate OIDC JWK RSA private key (first run only)
