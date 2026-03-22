@@ -64,10 +64,8 @@
   ansible.builtin.apt:
     name: git
     state: present
-  when: n8n_workflows_repo | default('') != ''
 
 - name: Import workflows from Git repository
-  when: n8n_workflows_repo | default('') != ''
   no_log: true
   block:
     - name: Build workflow repository clone URL
@@ -118,47 +116,6 @@
         path: "{{ n8n_workflows_clone_dir }}"
         state: absent
 
-- name: Import workflows from local directory
-  when: n8n_workflows_repo | default('') == ''
-  block:
-    - name: Find workflow files to import
-      ansible.builtin.find:
-        paths: "{{ playbook_dir }}/workflows"
-        patterns: "*.json"
-      register: _n8n_workflow_files
-      delegate_to: localhost
-      become: false
-
-    - name: Import workflows into n8n
-      when: _n8n_workflow_files.files | length > 0
-      block:
-        - name: Copy workflow files to remote host
-          ansible.builtin.copy:
-            src: "{{ item.path }}"
-            dest: "/tmp/{{ item.path | basename }}"
-            mode: "0644"
-          loop: "{{ _n8n_workflow_files.files }}"
-
-        - name: Copy workflow files into n8n container
-          ansible.builtin.command: >
-            docker cp /tmp/{{ item.path | basename }}
-            {{ n8n_container_name }}:/tmp/{{ item.path | basename }}
-          loop: "{{ _n8n_workflow_files.files }}"
-          changed_when: true
-
-        - name: Import workflows via n8n CLI
-          ansible.builtin.command: >
-            docker exec {{ n8n_container_name }}
-            n8n import:workflow --input=/tmp/{{ item.path | basename }}
-          loop: "{{ _n8n_workflow_files.files }}"
-          register: _n8n_import_result
-          changed_when: "'Successfully imported' in _n8n_import_result.stdout"
-
-        - name: Clean up workflow files from remote host
-          ansible.builtin.file:
-            path: "/tmp/{{ item.path | basename }}"
-            state: absent
-          loop: "{{ _n8n_workflow_files.files }}"
 
 - name: Display n8n access information
   ansible.builtin.debug:
