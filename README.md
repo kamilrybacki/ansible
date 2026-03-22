@@ -304,10 +304,12 @@ Deploys [Nexterm](https://github.com/gnmyt/nexterm) — a lightweight web-based 
 
 - **Image:** `germannewsmaker/nexterm:latest`
 - **Web UI:** port 6989 (proxied via Caddy at `nexterm.<domain>`)
+- **SSO:** Authelia OIDC — Nexterm's internal login is disabled; users authenticated via Authelia are auto-logged in (no separate login prompt)
 - **Auto-provisioning:** creates admin account, SSH key identity, and host connections via Nexterm REST API on first run (sentinel-gated)
 - **Connections auto-added:** all hosts defined in `nexterm_connections` (lw-main, lw-s1 by default)
 - **Encryption:** generates 64-char hex `ENCRYPTION_KEY` on first run, stored at `/opt/homelab/nexterm/.encryption_key`
 - **Homepage integration:** adds Nexterm card to the Homepage service dashboard
+- **Note:** ships a patched `oidc.js` (mounted read-only into the container) that sets `allowInsecureRequests: true` on the `openid-client` discovery call — required because Caddy serves HTTP-only internally and TLS terminates at Cloudflare
 
 ### dev-tools/vault-mcp-setup
 
