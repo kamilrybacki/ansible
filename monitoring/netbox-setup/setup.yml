@@ -36,6 +36,11 @@
         vault_service_name: "netbox"
       when: _vault_available | bool
 
+    - name: Detect shared database availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/shared-database/detect.yml"
+      vars:
+        shared_db_types: ["postgres", "redis"]
+
 - name: Gather host details
   hosts: localhost
   connection: local
@@ -89,6 +94,14 @@
             if hostvars['localhost']['_homelab_vars_stat'].stat.exists
             else ''
           }}
+        netbox_use_shared_db: "{{ _shared_postgres_available | default(false) | bool }}"
+        netbox_use_shared_redis: "{{ _shared_redis_available | default(false) | bool }}"
+        netbox_shared_redis_password: "{{ _shared_redis_password | default('') }}"
+        netbox_db_host: "{{ 'shared-postgres' if _shared_postgres_available | default(false) | bool else 'postgres' }}"
+        netbox_redis_host_resolved: "{{ 'shared-redis' if _shared_redis_available | default(false) | bool else 'redis' }}"
+        netbox_redis_cache_host_resolved: "{{ 'shared-redis' if _shared_redis_available | default(false) | bool else 'redis-cache' }}"
+        netbox_redis_db_number: "1"
+        netbox_redis_cache_db_number: "2"
       no_log: true
 
 - name: Store Netbox secrets to Vault
@@ -185,6 +198,5 @@
   handlers:
     - name: reload caddy
       ansible.builtin.shell: |
-        
         docker exec caddy caddy reload --config /etc/caddy/Caddyfile
       changed_when: true
