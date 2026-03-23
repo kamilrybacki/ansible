@@ -1,0 +1,83 @@
+---
+- name: Install Python Docker SDK
+  ansible.builtin.apt:
+    name: python3-docker
+    state: present
+
+- name: Create shared Redis data directory
+  ansible.builtin.file:
+    path: "{{ shared_redis_data_dir }}"
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+
+- name: Ensure local secrets directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.homelab-secrets/shared-redis"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Generate Redis password (idempotent)
+  ansible.builtin.set_fact:
+    shared_redis_password: "{{ lookup('password', lookup('env', 'HOME') + '/.homelab-secrets/shared-redis/password chars=ascii_letters,digits length=64') }}"
+  no_log: true
+
+- name: Restrict secret file to owner-only
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.homelab-secrets/shared-redis/password"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+
+- name: Create databases-net Docker network
+  community.docker.docker_network:
+    name: databases-net
+    state: present
+
+- name: Template Docker Compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ shared_redis_data_dir }}/docker-compose.yml"
+    mode: "0600"
+    owner: root
+    group: root
+  no_log: true
+
+- name: Deploy shared Redis stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ shared_redis_data_dir }}"
+    state: present
+  no_log: true
+
+- name: Wait for shared Redis to become ready
+  ansible.builtin.command: >
+    docker exec {{ shared_redis_container_name }}
+    valkey-cli -a "{{ shared_redis_password }}" ping
+  register: redis_ready
+  until: "'PONG' in redis_ready.stdout"
+  retries: "{{ shared_redis_health_check_retries }}"
+  delay: "{{ shared_redis_health_check_delay }}"
+  changed_when: false
+  no_log: true
+
+- name: Display shared Redis access information
+  ansible.builtin.debug:
+    msg: |
+      Shared Redis (Valkey) is running at {{ inventory_hostname }}:{{ shared_redis_port }}
+
+      AOF persistence: enabled
+      Max memory: {{ shared_redis_maxmemory }}
+      Eviction policy: {{ shared_redis_maxmemory_policy }}
+
+      DB allocations:
+        0 = Outline
+        1 = Netbox (task queue)
+        2 = Netbox (cache)
+        3 = Paperless
+        4 = LibreNMS
+        5 = Dify
+
+      Credentials stored in ~/.homelab-secrets/shared-redis/
