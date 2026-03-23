@@ -170,6 +170,7 @@ Insert at the very top of `config.yaml.j2` (before line 1). This builds a dict o
 {%- endif -%}
 {#- Pre-filter tiers once: build a dict of tier_name -> filtered_models -#}
 {%- set _filtered_tiers = {} -%}
+{%- if openclaw_agent_tiers is defined -%}
 {%- for tier_name, tier in openclaw_agent_tiers.items() -%}
   {%- set _models = [] -%}
   {%- for m in tier.models -%}
@@ -181,7 +182,10 @@ Insert at the very top of `config.yaml.j2` (before line 1). This builds a dict o
     {%- set _ = _filtered_tiers.update({tier_name: {'timeout': tier.timeout, 'models': _models}}) -%}
   {%- endif -%}
 {%- endfor -%}
+{%- endif -%}
 ```
+
+Note: The existing providers block uses inline conditional commas (`{{ ',' if ... else '' }}`). The new agents block uses `joiner()` instead — this is intentional since `joiner()` is cleaner for dynamic-length lists. Unifying the provider comma strategy is a separate refactoring concern.
 
 - [ ] **Step 2: Replace the `agents` block with tier-aware rendering**
 
@@ -193,9 +197,8 @@ Replace lines 66-70 with the following. Uses Jinja2 `joiner()` for clean comma h
       "model": "{{ openclaw_primary_model }}"
     }{% if _filtered_tiers | length > 0 %},
     "tiers": {
-{%- set tier_comma = joiner(',') -%}
 {%- for tier_name, tier in _filtered_tiers.items() %}
-{{ tier_comma() }}
+{% if not loop.first %},{% endif %}
       "{{ tier_name }}": {
         "timeout": {{ tier.timeout }},
         "models": [{{ tier.models | map('tojson') | join(', ') }}]
@@ -203,22 +206,21 @@ Replace lines 66-70 with the following. Uses Jinja2 `joiner()` for clean comma h
 {%- endfor %}
     }{% endif %}{#- Render agent definitions whose tier exists after filtering -#}
 {%- set _active_agents = [] -%}
+{%- if openclaw_agent_definitions is defined -%}
 {%- for agent_name, agent in openclaw_agent_definitions.items() -%}
   {%- if agent.tier in _filtered_tiers -%}
     {%- if _active_agents.append(agent_name) -%}{%- endif -%}
   {%- endif -%}
 {%- endfor -%}
+{%- endif -%}
 {% if _active_agents | length > 0 %},
     "definitions": {
-{%- set def_comma = joiner(',') -%}
-{%- for agent_name, agent in openclaw_agent_definitions.items() -%}
-{%- if agent_name in _active_agents %}
-{{ def_comma() }}
+{%- for agent_name in _active_agents %}
+{% if not loop.first %},{% endif %}
       "{{ agent_name }}": {
-        "tier": "{{ agent.tier }}",
-        "system_prompt": {{ agent.system_prompt | tojson }}
+        "tier": "{{ openclaw_agent_definitions[agent_name].tier }}",
+        "system_prompt": {{ openclaw_agent_definitions[agent_name].system_prompt | tojson }}
       }
-{%- endif -%}
 {%- endfor %}
     }{% endif %}
   },
