@@ -1,0 +1,83 @@
+# common/shared-database/detect.yml
+---
+# Detects whether shared database instances are reachable.
+# Caller sets:
+#   shared_db_host   – IP of the shared DB node (default: 10.0.0.2)
+#   shared_db_types  – list of types to check, e.g. ["postgres", "redis"]
+#
+# Sets facts:
+#   _shared_postgres_available (bool)
+#   _shared_redis_available (bool)
+#   _shared_mariadb_available (bool)
+#   _shared_redis_password (str) – loaded from secrets file when available
+#   _shared_postgres_superuser_password (str) – loaded from secrets file when available
+#   _shared_mariadb_root_password (str) – loaded from secrets file when available
+
+- name: Load shared-database defaults
+  ansible.builtin.include_vars:
+    file: "{{ playbook_dir }}/../common/shared-database/defaults.yml"
+
+- name: Check shared PostgreSQL reachability
+  ansible.builtin.wait_for:
+    host: "{{ shared_db_host }}"
+    port: "{{ shared_postgres_port }}"
+    timeout: 3
+    state: started
+  register: _pg_check
+  failed_when: false
+  when: "'postgres' in shared_db_types"
+
+- name: Check shared Redis reachability
+  ansible.builtin.wait_for:
+    host: "{{ shared_db_host }}"
+    port: "{{ shared_redis_port }}"
+    timeout: 3
+    state: started
+  register: _redis_check
+  failed_when: false
+  when: "'redis' in shared_db_types"
+
+- name: Check shared MariaDB reachability
+  ansible.builtin.wait_for:
+    host: "{{ shared_db_host }}"
+    port: "{{ shared_mariadb_port }}"
+    timeout: 3
+    state: started
+  register: _mariadb_check
+  failed_when: false
+  when: "'mariadb' in shared_db_types"
+
+- name: Set shared database availability facts
+  ansible.builtin.set_fact:
+    _shared_postgres_available: "{{ ('postgres' in shared_db_types) and (_pg_check is defined) and (_pg_check is succeeded) }}"
+    _shared_redis_available: "{{ ('redis' in shared_db_types) and (_redis_check is defined) and (_redis_check is succeeded) }}"
+    _shared_mariadb_available: "{{ ('mariadb' in shared_db_types) and (_mariadb_check is defined) and (_mariadb_check is succeeded) }}"
+
+- name: Load shared Redis password
+  ansible.builtin.set_fact:
+    _shared_redis_password: "{{ lookup('file', lookup('env', 'HOME') + '/.homelab-secrets/shared-redis/password') }}"
+  when: _shared_redis_available | bool
+  failed_when: false
+  no_log: true
+
+- name: Load shared PostgreSQL superuser password
+  ansible.builtin.set_fact:
+    _shared_postgres_superuser_password: "{{ lookup('file', lookup('env', 'HOME') + '/.homelab-secrets/shared-postgres/superuser_password') }}"
+  when: _shared_postgres_available | bool
+  failed_when: false
+  no_log: true
+
+- name: Load shared MariaDB root password
+  ansible.builtin.set_fact:
+    _shared_mariadb_root_password: "{{ lookup('file', lookup('env', 'HOME') + '/.homelab-secrets/shared-mariadb/root_password') }}"
+  when: _shared_mariadb_available | bool
+  failed_when: false
+  no_log: true
+
+- name: Report shared database detection results
+  ansible.builtin.debug:
+    msg: |
+      Shared database detection:
+        PostgreSQL: {{ 'AVAILABLE' if _shared_postgres_available | default(false) | bool else 'not available (local fallback)' }}
+        Redis:      {{ 'AVAILABLE' if _shared_redis_available | default(false) | bool else 'not available (local fallback)' }}
+        MariaDB:    {{ 'AVAILABLE' if _shared_mariadb_available | default(false) | bool else 'not available (local fallback)' }}

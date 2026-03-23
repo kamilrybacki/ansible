@@ -1,0 +1,26 @@
+# common/shared-database/provision-redis.yml
+---
+# Verifies connectivity to the shared Redis instance.
+# Caller sets:
+#   redis_db_number – logical database number for this service
+#
+# Requires: _shared_redis_password (set by detect.yml)
+# No provisioning needed — Redis databases are implicit (0-15)
+
+- name: Verify shared Redis connectivity with assigned database
+  ansible.builtin.command: >
+    docker run --rm --network host
+    valkey/valkey:8.0-alpine
+    valkey-cli -h {{ shared_db_host }} -p {{ shared_redis_port }}
+    -a "{{ _shared_redis_password }}" -n {{ redis_db_number }}
+    PING
+  register: _redis_ping
+  changed_when: false
+  failed_when: "'PONG' not in _redis_ping.stdout"
+  no_log: true
+  delegate_to: localhost
+  become: false
+
+- name: Report Redis provisioning
+  ansible.builtin.debug:
+    msg: "Verified shared Redis connectivity on DB {{ redis_db_number }} ({{ shared_db_host }}:{{ shared_redis_port }})"

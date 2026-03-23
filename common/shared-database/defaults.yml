@@ -1,0 +1,12 @@
+# common/shared-database/defaults.yml
+---
+# Default shared database host — override via homelab vars or playbook vars
+shared_db_host: "10.0.0.2"
+
+# Ports
+shared_postgres_port: 5432
+shared_redis_port: 6379
+shared_mariadb_port: 3306
+
+# Docker network name (must match what shared-*-setup creates)
+shared_db_network: "databases-net"

@@ -1,0 +1,54 @@
+# common/shared-database/provision-postgres.yml
+---
+# Provisions a database and user on the shared PostgreSQL instance.
+# Caller sets:
+#   db_name     – database name to create
+#   db_user     – username to create
+#   db_password – password for the user
+#   db_conn_limit – connection limit (default: 20)
+#
+# Requires: _shared_postgres_superuser_password (set by detect.yml)
+
+- name: Install psycopg2 for PostgreSQL provisioning
+  ansible.builtin.apt:
+    name: python3-psycopg2
+    state: present
+  become: true
+
+- name: Create database on shared PostgreSQL
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    login_host: "{{ shared_db_host }}"
+    login_port: "{{ shared_postgres_port }}"
+    login_user: "postgres"
+    login_password: "{{ _shared_postgres_superuser_password }}"
+    state: present
+
+- name: Create user on shared PostgreSQL
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    login_host: "{{ shared_db_host }}"
+    login_port: "{{ shared_postgres_port }}"
+    login_user: "postgres"
+    login_password: "{{ _shared_postgres_superuser_password }}"
+    conn_limit: "{{ db_conn_limit | default(20) }}"
+    state: present
+  no_log: true
+
+- name: Grant all privileges on database to user
+  community.postgresql.postgresql_privs:
+    database: "{{ db_name }}"
+    type: database
+    roles: "{{ db_user }}"
+    privs: ALL
+    login_host: "{{ shared_db_host }}"
+    login_port: "{{ shared_postgres_port }}"
+    login_user: "postgres"
+    login_password: "{{ _shared_postgres_superuser_password }}"
+    state: present
+  no_log: true
+
+- name: Report PostgreSQL provisioning
+  ansible.builtin.debug:
+    msg: "Provisioned database '{{ db_name }}' with user '{{ db_user }}' on shared PostgreSQL ({{ shared_db_host }}:{{ shared_postgres_port }})"
