@@ -63,10 +63,15 @@
           changed_when: true
 
         - name: Reassign Outline ownership
-          ansible.builtin.shell: >
-            docker exec shared-postgres
-            psql -U postgres -d outline -c
-            "DO \\$\\$ DECLARE r RECORD; BEGIN FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public' LOOP EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO outline'; END LOOP; FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public' LOOP EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO outline'; END LOOP; END \\$\\$;"
+          ansible.builtin.shell: |
+            docker exec -i shared-postgres psql -U postgres -d outline <<'EOSQL'
+            DO $$ DECLARE r RECORD; BEGIN
+              FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public'
+              LOOP EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO outline'; END LOOP;
+              FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public'
+              LOOP EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO outline'; END LOOP;
+            END $$;
+            EOSQL
           changed_when: true
 
         - name: Count Outline target rows
@@ -107,10 +112,15 @@
           changed_when: true
 
         - name: Reassign Netbox ownership
-          ansible.builtin.shell: >
-            docker exec shared-postgres
-            psql -U postgres -d netbox -c
-            "DO \\$\\$ DECLARE r RECORD; BEGIN FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public' LOOP EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO netbox'; END LOOP; FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public' LOOP EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO netbox'; END LOOP; END \\$\\$;"
+          ansible.builtin.shell: |
+            docker exec -i shared-postgres psql -U postgres -d netbox <<'EOSQL'
+            DO $$ DECLARE r RECORD; BEGIN
+              FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public'
+              LOOP EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO netbox'; END LOOP;
+              FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public'
+              LOOP EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO netbox'; END LOOP;
+            END $$;
+            EOSQL
           changed_when: true
 
     # ── Paperless PostgreSQL ──
@@ -138,10 +148,15 @@
           changed_when: true
 
         - name: Reassign Paperless ownership
-          ansible.builtin.shell: >
-            docker exec shared-postgres
-            psql -U postgres -d paperless -c
-            "DO \\$\\$ DECLARE r RECORD; BEGIN FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public' LOOP EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO paperless'; END LOOP; FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public' LOOP EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO paperless'; END LOOP; END \\$\\$;"
+          ansible.builtin.shell: |
+            docker exec -i shared-postgres psql -U postgres -d paperless <<'EOSQL'
+            DO $$ DECLARE r RECORD; BEGIN
+              FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public'
+              LOOP EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO paperless'; END LOOP;
+              FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public'
+              LOOP EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO paperless'; END LOOP;
+            END $$;
+            EOSQL
           changed_when: true
 
     # ── Seafile MariaDB ──
@@ -265,10 +280,15 @@
           changed_when: true
 
         - name: Reassign Dify ownership
-          ansible.builtin.shell: >
-            docker exec shared-postgres
-            psql -U postgres -d dify -c
-            "DO \\$\\$ DECLARE r RECORD; BEGIN FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public' LOOP EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO dify'; END LOOP; FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public' LOOP EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO dify'; END LOOP; END \\$\\$;"
+          ansible.builtin.shell: |
+            docker exec -i shared-postgres psql -U postgres -d dify <<'EOSQL'
+            DO $$ DECLARE r RECORD; BEGIN
+              FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public'
+              LOOP EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO dify'; END LOOP;
+              FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public'
+              LOOP EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO dify'; END LOOP;
+            END $$;
+            EOSQL
           changed_when: true
 
     - name: Migration summary
