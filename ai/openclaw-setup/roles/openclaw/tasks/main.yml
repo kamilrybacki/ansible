@@ -97,7 +97,7 @@
 - name: Parse existing agent names
   ansible.builtin.set_fact:
     _openclaw_existing_agents: >-
-      {{ (_openclaw_agents_raw.stdout | default('[]') | from_json | map(attribute='name') | list)
+      {{ (_openclaw_agents_raw.stdout | default('[]') | from_json | map(attribute='id') | list)
          if (_openclaw_agents_raw.rc == 0 and _openclaw_agents_raw.stdout | default('') | trim is regex('^\['))
          else [] }}
 
