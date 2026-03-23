@@ -1,0 +1,30 @@
+---
+services:
+  shared-redis:
+    container_name: {{ shared_redis_container_name }}
+    image: {{ shared_redis_image }}
+    command: >
+      valkey-server
+      --appendonly yes
+      --requirepass "{{ shared_redis_password }}"
+      --maxmemory {{ shared_redis_maxmemory }}
+      --maxmemory-policy {{ shared_redis_maxmemory_policy }}
+    ports:
+      - "{{ shared_redis_bind_address }}:{{ shared_redis_port }}:6379"
+    volumes:
+      - shared-redis-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-a", "{{ shared_redis_password }}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: {{ shared_redis_restart_policy }}
+    networks:
+      - databases-net
+
+volumes:
+  shared-redis-data:
+
+networks:
+  databases-net:
+    external: true

@@ -5,17 +5,25 @@ services:
     container_name: {{ outline_container_name }}
     image: {{ outline_image }}
     depends_on:
+{% if not outline_use_shared_db %}
       - postgres
+{% endif %}
+{% if not outline_use_shared_redis %}
       - redis
+{% endif %}
     ports:
       - "{{ outline_bind_address }}:{{ outline_port }}:3000"
     environment:
       NODE_ENV: production
       SECRET_KEY: "{{ outline_secret_key }}"
       UTILS_SECRET: "{{ outline_utils_secret }}"
-      DATABASE_URL: "postgresql://outline:{{ outline_db_password }}@postgres/outline"
+      DATABASE_URL: "postgresql://outline:{{ outline_db_password }}@{{ outline_db_host }}/outline"
       PGSSLMODE: disable
+{% if outline_use_shared_redis %}
+      REDIS_URL: "redis://:{{ outline_shared_redis_password }}@{{ outline_redis_host }}:6379/{{ outline_redis_db }}"
+{% else %}
       REDIS_URL: "redis://:{{ outline_redis_password }}@redis:6379"
+{% endif %}
       URL: "{{ outline_public_url if outline_public_url | length > 0 else 'http://localhost:' + outline_port | string }}"
       FORCE_HTTPS: "false"
       ENABLE_UPDATES: "false"
@@ -49,7 +57,11 @@ services:
     restart: {{ outline_restart_policy }}
     networks:
       - outline-net
+{% if outline_use_shared_db or outline_use_shared_redis %}
+      - databases-net
+{% endif %}
 
+{% if not outline_use_shared_db %}
   postgres:
     container_name: {{ outline_container_name }}-postgres
     image: {{ outline_postgres_image }}
@@ -63,6 +75,8 @@ services:
     networks:
       - outline-net
 
+{% endif %}
+{% if not outline_use_shared_redis %}
   redis:
     container_name: {{ outline_container_name }}-redis
     image: {{ outline_redis_image }}
@@ -73,11 +87,20 @@ services:
     networks:
       - outline-net
 
+{% endif %}
 volumes:
   outline-data:
+{% if not outline_use_shared_db %}
   outline-postgres-data:
+{% endif %}
+{% if not outline_use_shared_redis %}
   outline-redis-data:
+{% endif %}
 
 networks:
   outline-net:
     driver: bridge
+{% if outline_use_shared_db or outline_use_shared_redis %}
+  databases-net:
+    external: true
+{% endif %}

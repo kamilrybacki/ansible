@@ -4,22 +4,37 @@ services:
   netbox:
     container_name: {{ netbox_container_name }}
     image: {{ netbox_image }}
+{% if not (netbox_use_shared_db and netbox_use_shared_redis) %}
     depends_on:
+{% if not netbox_use_shared_db %}
       - postgres
+{% endif %}
+{% if not netbox_use_shared_redis %}
       - redis
       - redis-cache
+{% endif %}
+{% endif %}
     ports:
       - "{{ netbox_bind_address }}:{{ netbox_port }}:8080"
     environment:
       ALLOWED_HOSTS: "{{ netbox_hostname }}.{{ saved_domain | default('localhost') }} localhost 127.0.0.1 {{ ansible_host }}"
-      DB_HOST: postgres
+      DB_HOST: "{{ netbox_db_host }}"
       DB_NAME: netbox
       DB_PASSWORD: "{{ netbox_db_password }}"
       DB_USER: netbox
+{% if netbox_use_shared_redis %}
+      REDIS_HOST: "{{ netbox_redis_host_resolved }}"
+      REDIS_PASSWORD: "{{ netbox_shared_redis_password }}"
+      REDIS_DATABASE: "{{ netbox_redis_db_number }}"
+      REDIS_CACHE_HOST: "{{ netbox_redis_cache_host_resolved }}"
+      REDIS_CACHE_PASSWORD: "{{ netbox_shared_redis_password }}"
+      REDIS_CACHE_DATABASE: "{{ netbox_redis_cache_db_number }}"
+{% else %}
       REDIS_HOST: redis
       REDIS_PASSWORD: "{{ netbox_redis_password }}"
       REDIS_CACHE_HOST: redis-cache
       REDIS_CACHE_PASSWORD: "{{ netbox_redis_cache_password }}"
+{% endif %}
       SECRET_KEY: "{{ netbox_secret_key }}"
       SUPERUSER_NAME: "{{ netbox_admin_user }}"
       SUPERUSER_EMAIL: "{{ netbox_admin_email }}"
@@ -45,6 +60,9 @@ services:
     restart: {{ netbox_restart_policy }}
     networks:
       - netbox-net
+{% if netbox_use_shared_db or netbox_use_shared_redis %}
+      - databases-net
+{% endif %}
 
   netbox-worker:
     container_name: {{ netbox_container_name }}-worker
@@ -53,14 +71,23 @@ services:
     depends_on:
       - netbox
     environment:
-      DB_HOST: postgres
+      DB_HOST: "{{ netbox_db_host }}"
       DB_NAME: netbox
       DB_PASSWORD: "{{ netbox_db_password }}"
       DB_USER: netbox
+{% if netbox_use_shared_redis %}
+      REDIS_HOST: "{{ netbox_redis_host_resolved }}"
+      REDIS_PASSWORD: "{{ netbox_shared_redis_password }}"
+      REDIS_DATABASE: "{{ netbox_redis_db_number }}"
+      REDIS_CACHE_HOST: "{{ netbox_redis_cache_host_resolved }}"
+      REDIS_CACHE_PASSWORD: "{{ netbox_shared_redis_password }}"
+      REDIS_CACHE_DATABASE: "{{ netbox_redis_cache_db_number }}"
+{% else %}
       REDIS_HOST: redis
       REDIS_PASSWORD: "{{ netbox_redis_password }}"
       REDIS_CACHE_HOST: redis-cache
       REDIS_CACHE_PASSWORD: "{{ netbox_redis_cache_password }}"
+{% endif %}
       SECRET_KEY: "{{ netbox_secret_key }}"
       SKIP_SUPERUSER: "true"
     volumes:
@@ -70,6 +97,9 @@ services:
     restart: {{ netbox_restart_policy }}
     networks:
       - netbox-net
+{% if netbox_use_shared_db or netbox_use_shared_redis %}
+      - databases-net
+{% endif %}
 
   netbox-housekeeping:
     container_name: {{ netbox_container_name }}-housekeeping
@@ -78,14 +108,23 @@ services:
     depends_on:
       - netbox
     environment:
-      DB_HOST: postgres
+      DB_HOST: "{{ netbox_db_host }}"
       DB_NAME: netbox
       DB_PASSWORD: "{{ netbox_db_password }}"
       DB_USER: netbox
+{% if netbox_use_shared_redis %}
+      REDIS_HOST: "{{ netbox_redis_host_resolved }}"
+      REDIS_PASSWORD: "{{ netbox_shared_redis_password }}"
+      REDIS_DATABASE: "{{ netbox_redis_db_number }}"
+      REDIS_CACHE_HOST: "{{ netbox_redis_cache_host_resolved }}"
+      REDIS_CACHE_PASSWORD: "{{ netbox_shared_redis_password }}"
+      REDIS_CACHE_DATABASE: "{{ netbox_redis_cache_db_number }}"
+{% else %}
       REDIS_HOST: redis
       REDIS_PASSWORD: "{{ netbox_redis_password }}"
       REDIS_CACHE_HOST: redis-cache
       REDIS_CACHE_PASSWORD: "{{ netbox_redis_cache_password }}"
+{% endif %}
       SECRET_KEY: "{{ netbox_secret_key }}"
       SKIP_SUPERUSER: "true"
     volumes:
@@ -93,7 +132,11 @@ services:
     restart: {{ netbox_restart_policy }}
     networks:
       - netbox-net
+{% if netbox_use_shared_db or netbox_use_shared_redis %}
+      - databases-net
+{% endif %}
 
+{% if not netbox_use_shared_db %}
   postgres:
     container_name: {{ netbox_container_name }}-postgres
     image: {{ netbox_postgres_image }}
@@ -107,6 +150,8 @@ services:
     networks:
       - netbox-net
 
+{% endif %}
+{% if not netbox_use_shared_redis %}
   redis:
     container_name: {{ netbox_container_name }}-redis
     image: {{ netbox_redis_image }}
@@ -125,10 +170,21 @@ services:
     networks:
       - netbox-net
 
+{% endif %}
+{% if not (netbox_use_shared_db and netbox_use_shared_redis) %}
 volumes:
+{% if not netbox_use_shared_db %}
   netbox-postgres-data:
+{% endif %}
+{% if not netbox_use_shared_redis %}
   netbox-redis-data:
+{% endif %}
+{% endif %}
 
 networks:
   netbox-net:
     driver: bridge
+{% if netbox_use_shared_db or netbox_use_shared_redis %}
+  databases-net:
+    external: true
+{% endif %}
