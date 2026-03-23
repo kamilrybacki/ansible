@@ -16,20 +16,30 @@
     state: directory
     mode: "0700"
 
+- name: Create OpenClaw home directory
+  ansible.builtin.file:
+    path: "{{ openclaw_install_dir }}/openclaw-home"
+    state: directory
+    owner: "1000"
+    group: "1000"
+    mode: "0700"
+
+- name: Write OpenClaw config (providers + gateway + auth)
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ openclaw_install_dir }}/openclaw-home/openclaw.json"
+    owner: "1000"
+    group: "1000"
+    mode: "0600"
+  no_log: true
+  notify: Restart openclaw
+
 - name: Create Ollama data directory
   ansible.builtin.file:
     path: "{{ openclaw_install_dir }}/ollama-data"
     state: directory
     mode: "0755"
   when: openclaw_ollama_enabled
-
-- name: Write OpenClaw config.json
-  ansible.builtin.template:
-    src: config.yaml.j2
-    dest: "{{ openclaw_install_dir }}/config.json"
-    mode: "0600"
-  no_log: true
-  notify: Restart openclaw
 
 - name: Write OpenClaw docker-compose.yml
   ansible.builtin.template:
@@ -68,11 +78,39 @@
   when: openclaw_ollama_enabled
 
 - name: Wait for OpenClaw gateway to become reachable
-  ansible.builtin.wait_for:
-    host: "{{ openclaw_bind_address }}"
-    port: "{{ openclaw_gateway_port }}"
-    state: started
-    timeout: "{{ openclaw_health_check_retries * openclaw_health_check_delay }}"
+  ansible.builtin.command:
+    cmd: docker exec openclaw curl -sf http://localhost:18789/health
+  register: _openclaw_health
+  until: _openclaw_health is not failed
+  retries: "{{ openclaw_health_check_retries }}"
+  delay: "{{ openclaw_health_check_delay }}"
+  changed_when: false
+
+# --- Agent provisioning ---
+- name: List existing OpenClaw agents
+  ansible.builtin.command:
+    cmd: docker exec openclaw openclaw agents list --json
+  register: _openclaw_agents_raw
+  changed_when: false
+  failed_when: false
+
+- name: Parse existing agent names
+  ansible.builtin.set_fact:
+    _openclaw_existing_agents: "{{ (_openclaw_agents_raw.stdout | default('[]') | from_json | map(attribute='name') | list) if _openclaw_agents_raw.rc == 0 else [] }}"
+
+- name: Create OpenClaw agents
+  ansible.builtin.command:
+    cmd: >-
+      docker exec openclaw openclaw agents add {{ item.name }}
+      --model {{ item.model }}
+      --non-interactive
+      --workspace /home/node/.openclaw/workspace
+  loop: "{{ openclaw_agents }}"
+  loop_control:
+    label: "{{ item.name }} ({{ item.model }})"
+  when: item.name not in _openclaw_existing_agents
+  register: _agent_create
+  changed_when: _agent_create.rc == 0
 
 # --- Security hardening ---
 - name: Configure UFW firewall rules
