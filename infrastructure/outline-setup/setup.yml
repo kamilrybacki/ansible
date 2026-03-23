@@ -32,6 +32,11 @@
         file: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
       when: _homelab_vars_stat.stat.exists
 
+    - name: Detect shared database availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/shared-database/detect.yml"
+      vars:
+        shared_db_types: ["postgres", "redis"]
+
 - name: Gather host and auth details
   hosts: localhost
   connection: local
@@ -143,6 +148,13 @@
             if outline_oidc_base_url | length > 0 else ''
           }}
         outline_oidc_display_name: "Authelia"
+        # Shared database detection
+        outline_use_shared_db: "{{ _shared_postgres_available | default(false) | bool }}"
+        outline_use_shared_redis: "{{ _shared_redis_available | default(false) | bool }}"
+        outline_shared_redis_password: "{{ _shared_redis_password | default('') }}"
+        outline_db_host: "{{ 'shared-postgres' if _shared_postgres_available | default(false) | bool else 'postgres' }}"
+        outline_redis_host: "{{ 'shared-redis' if _shared_redis_available | default(false) | bool else 'redis' }}"
+        outline_redis_db: "0"
         # Reverse proxy / integration
         outline_bind_address: "{{ '127.0.0.1' if target_host_ip in ['localhost', '127.0.0.1', '::1'] else '0.0.0.0' }}"
         saved_domain: "{{ hostvars['localhost']['saved_domain'] | default('') }}"
