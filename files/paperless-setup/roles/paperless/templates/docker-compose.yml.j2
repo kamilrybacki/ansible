@@ -29,12 +29,14 @@ services:
     container_name: {{ paperless_container_name }}
     image: {{ paperless_image }}
     restart: {{ paperless_restart_policy }}
+{% if not (paperless_use_shared_db and paperless_use_shared_redis) %}
     depends_on:
 {% if not paperless_use_shared_db %}
       - db
 {% endif %}
 {% if not paperless_use_shared_redis %}
       - redis
+{% endif %}
 {% endif %}
     ports:
       - "{{ paperless_bind_address }}:{{ paperless_port }}:8000"
