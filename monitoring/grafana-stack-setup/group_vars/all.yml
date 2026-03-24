@@ -21,7 +21,7 @@ mimir_port: 9009
 alloy_image: "grafana/alloy:v1.5.1"
 
 # OpenClaw metrics exporter — use Docker gateway IP so Alloy (in grafana-stack network) can reach it
-openclaw_metrics_host: "172.19.0.1"
+openclaw_metrics_host: "openclaw-metrics"
 openclaw_metrics_port: 9101
 
 # Security service metrics — Alloy must be on homelab-net; use container IPs (not names) — Alloy resolves DNS via grafana-stack_default

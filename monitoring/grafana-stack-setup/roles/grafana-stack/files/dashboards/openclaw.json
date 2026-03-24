@@ -74,7 +74,7 @@
             "type": "prometheus",
             "uid": "mimir"
           },
-          "expr": "sum(increase(openclaw_tokens_input_total[24h])) + sum(increase(openclaw_tokens_output_total[24h]))",
+          "expr": "sum(increase(openclaw_tokens_input_total[24h])) + sum(increase(openclaw_tokens_output_total[24h])) or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -134,7 +134,7 @@
             "type": "prometheus",
             "uid": "mimir"
           },
-          "expr": "sum(increase(openclaw_cost_dollars_total[24h]))",
+          "expr": "sum(increase(openclaw_cost_dollars_total[24h])) or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -194,7 +194,7 @@
             "type": "prometheus",
             "uid": "mimir"
           },
-          "expr": "sum(rate(openclaw_requests_total[5m])) * 60",
+          "expr": "sum(rate(openclaw_requests_total[5m])) * 60 or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -253,7 +253,7 @@
             "type": "prometheus",
             "uid": "mimir"
           },
-          "expr": "sum(openclaw_active_sessions)",
+          "expr": "sum(openclaw_active_sessions) or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -843,7 +843,7 @@
             "type": "prometheus",
             "uid": "mimir"
           },
-          "expr": "openclaw_heartbeat_status",
+          "expr": "openclaw_heartbeat_status or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -903,7 +903,7 @@
             "type": "prometheus",
             "uid": "mimir"
           },
-          "expr": "sum(openclaw_cost_rate_dollars_per_hour)",
+          "expr": "sum(openclaw_cost_rate_dollars_per_hour) or vector(0)",
           "instant": true,
           "refId": "A"
         }

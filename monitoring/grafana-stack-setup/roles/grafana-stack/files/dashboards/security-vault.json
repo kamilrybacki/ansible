@@ -18,7 +18,7 @@
       "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
       "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1}, "id": 2,
       "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
-      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "increase(pihole_dns_queries_all_types_total{job=\"security\", service=\"pihole\"}[24h])", "instant": true, "refId": "A"}],
+      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "increase(pihole_dns_queries_all_types_total{job=\"security\", service=\"pihole\"}[24h]) or vector(0)", "instant": true, "refId": "A"}],
       "title": "DNS Queries (24h)", "type": "stat"
     },
     {
@@ -26,7 +26,7 @@
       "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "max": 100, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 20}, {"color": "red", "value": 50}]}, "unit": "percent"}, "overrides": []},
       "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1}, "id": 3,
       "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
-      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "pihole_ads_percentage_today{job=\"security\", service=\"pihole\"}", "instant": true, "refId": "A"}],
+      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "pihole_ads_percentage_today{job=\"security\", service=\"pihole\"} or vector(0)", "instant": true, "refId": "A"}],
       "title": "DNS Blocked %", "type": "stat"
     },
     {
@@ -132,7 +132,7 @@
       "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "red", "index": 0, "text": "Sealed"}, "1": {"color": "green", "index": 1, "text": "Unsealed"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}, "unit": "short"}, "overrides": []},
       "gridPos": {"h": 4, "w": 4, "x": 12, "y": 33}, "id": 19,
       "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
-      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "vault_core_unsealed{job=\"security\", service=\"vault\"} or up{job=\"security\", service=\"vault\"}", "instant": true, "refId": "A"}],
+      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "(vault_core_unsealed{job=\"security\", service=\"vault\"} or up{job=\"security\", service=\"vault\"}) or vector(0)", "instant": true, "refId": "A"}],
       "title": "Vault Status", "type": "stat"
     },
     {
@@ -140,7 +140,7 @@
       "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
       "gridPos": {"h": 4, "w": 4, "x": 16, "y": 33}, "id": 20,
       "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
-      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "vault_token_count{job=\"security\", service=\"vault\"}", "instant": true, "refId": "A"}],
+      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "vault_token_count{job=\"security\", service=\"vault\"} or vector(0)", "instant": true, "refId": "A"}],
       "title": "Vault Token Count", "type": "stat"
     },
     {
@@ -148,7 +148,7 @@
       "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "reqps"}, "overrides": []},
       "gridPos": {"h": 4, "w": 4, "x": 20, "y": 33}, "id": 21,
       "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
-      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "rate(authelia_authentication_duration_seconds_count{job=\"security\", service=\"authelia\"}[5m])", "instant": true, "refId": "A"}],
+      "targets": [{"datasource": {"type": "prometheus", "uid": "mimir"}, "expr": "rate(authelia_authn_duration_count{job=\"security\", service=\"authelia\"}[5m]) or vector(0)", "instant": true, "refId": "A"}],
       "title": "Authelia Auth Rate", "type": "stat"
     }
   ],

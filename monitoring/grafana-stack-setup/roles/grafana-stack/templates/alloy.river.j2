@@ -13,7 +13,7 @@ prometheus.relabel "host_labels" {
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 
@@ -37,7 +37,7 @@ prometheus.relabel "docker_labels" {
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 
@@ -55,7 +55,7 @@ loki.source.docker "containers" {
 
   labels = {
     "job"      = "docker",
-    "instance" = env("HOSTNAME"),
+    "instance" = "{{ ansible_hostname | default('localhost') }}",
   }
 }
 
@@ -106,28 +106,23 @@ prometheus.relabel "openclaw_labels" {
 }
 {% endif %}
 
-// ── cAdvisor container resource metrics ──────────────────────────────────────
-prometheus.exporter.cadvisor "containers" {
-  docker_host            = "unix:///var/run/docker.sock"
-  store_container_labels = false
-}
-
+// ── Docker container metrics (cadvisor) ───────────────────────────────────────
 prometheus.scrape "cadvisor" {
-  targets         = prometheus.exporter.cadvisor.containers.targets
+  targets         = [{"__address__" = "cadvisor:8080"}]
+  metrics_path    = "/metrics"
   forward_to      = [prometheus.relabel.cadvisor_labels.receiver]
   scrape_interval = "60s"
 }
 
 prometheus.relabel "cadvisor_labels" {
   forward_to = [prometheus.remote_write.mimir.receiver]
-
   rule {
     target_label = "job"
     replacement  = "cadvisor"
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 
@@ -152,7 +147,7 @@ prometheus.relabel "caddy_labels" {
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 {% endif %}
@@ -177,7 +172,7 @@ prometheus.relabel "authelia_labels" {
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 {% endif %}
@@ -202,7 +197,7 @@ prometheus.relabel "crowdsec_labels" {
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 {% endif %}
@@ -232,7 +227,7 @@ prometheus.relabel "vault_labels" {
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 {% endif %}
@@ -257,7 +252,7 @@ prometheus.relabel "pihole_labels" {
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 {% endif %}
@@ -282,7 +277,7 @@ prometheus.relabel "wireguard_labels" {
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 {% endif %}
@@ -325,7 +320,7 @@ prometheus.relabel "blackbox_labels" {
   }
   rule {
     target_label = "instance"
-    replacement  = env("HOSTNAME")
+    replacement  = "{{ ansible_hostname | default('localhost') }}"
   }
 }
 {% endif %}
