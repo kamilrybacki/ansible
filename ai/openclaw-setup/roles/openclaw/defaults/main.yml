@@ -25,10 +25,10 @@ openclaw_deepseek_api_key: ""
 openclaw_deepseek_rpm: 60
 
 # --- Provider: Ollama (local, zero-cost, fully private) ---
-openclaw_ollama_enabled: false
+openclaw_ollama_enabled: true
 openclaw_ollama_base_url: "http://ollama:11434"
-openclaw_ollama_model: "llama3.1:8b"
-openclaw_ollama_context_window: 65536
+openclaw_ollama_model: "qwen2.5:0.5b"
+openclaw_ollama_context_window: 4096
 openclaw_ollama_gpu_enabled: false
 
 # Docker image for Ollama sidecar
@@ -38,8 +38,8 @@ openclaw_ollama_image: "ollama/ollama:latest"
 # Primary model for simple tasks
 openclaw_primary_model: "nvidia/moonshotai/kimi-k2.5"
 
-# Heartbeat model (lightweight, every 30m)
-openclaw_heartbeat_model: "groq/llama-3.3-70b-versatile"
+# Heartbeat model (lightweight local model, every 30m — zero API cost)
+openclaw_heartbeat_model: "ollama/qwen2.5:0.5b"
 openclaw_heartbeat_interval: 1800
 
 # Complex task model (paid)
