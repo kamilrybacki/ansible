@@ -106,6 +106,133 @@ prometheus.relabel "openclaw_labels" {
 }
 {% endif %}
 
+// ── cAdvisor container resource metrics ──────────────────────────────────────
+prometheus.exporter.cadvisor "containers" {
+  docker_host            = "unix:///var/run/docker.sock"
+  store_container_labels = false
+}
+
+prometheus.scrape "cadvisor" {
+  targets         = prometheus.exporter.cadvisor.containers.targets
+  forward_to      = [prometheus.relabel.cadvisor_labels.receiver]
+  scrape_interval = "60s"
+}
+
+prometheus.relabel "cadvisor_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+
+  rule {
+    target_label = "job"
+    replacement  = "cadvisor"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = env("HOSTNAME")
+  }
+}
+
+// ── Security service metrics ─────────────────────────────────────────────────
+{% if caddy_metrics_host | default('') | length > 0 %}
+prometheus.scrape "caddy" {
+  targets         = [{"__address__" = "{{ caddy_metrics_host }}:{{ caddy_metrics_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.caddy_labels.receiver]
+  scrape_interval = "60s"
+}
+
+prometheus.relabel "caddy_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule { target_label = "job";     replacement = "security" }
+  rule { target_label = "service"; replacement = "caddy"    }
+  rule { target_label = "instance"; replacement = env("HOSTNAME") }
+}
+{% endif %}
+
+{% if authelia_metrics_host | default('') | length > 0 %}
+prometheus.scrape "authelia" {
+  targets         = [{"__address__" = "{{ authelia_metrics_host }}:{{ authelia_metrics_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.authelia_labels.receiver]
+  scrape_interval = "60s"
+}
+
+prometheus.relabel "authelia_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule { target_label = "job";      replacement = "security" }
+  rule { target_label = "service";  replacement = "authelia" }
+  rule { target_label = "instance"; replacement = env("HOSTNAME") }
+}
+{% endif %}
+
+{% if crowdsec_metrics_host | default('') | length > 0 %}
+prometheus.scrape "crowdsec" {
+  targets         = [{"__address__" = "{{ crowdsec_metrics_host }}:{{ crowdsec_metrics_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.crowdsec_labels.receiver]
+  scrape_interval = "60s"
+}
+
+prometheus.relabel "crowdsec_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule { target_label = "job";      replacement = "security"  }
+  rule { target_label = "service";  replacement = "crowdsec"  }
+  rule { target_label = "instance"; replacement = env("HOSTNAME") }
+}
+{% endif %}
+
+{% if vault_metrics_host | default('') | length > 0 %}
+prometheus.scrape "vault" {
+  targets      = [{"__address__" = "{{ vault_metrics_host }}:{{ vault_metrics_port }}"}]
+  metrics_path = "/v1/sys/metrics"
+  params       = {"format" = ["prometheus"]}
+  authorization {
+    type        = "Bearer"
+    credentials = env("VAULT_METRICS_TOKEN")
+  }
+  forward_to      = [prometheus.relabel.vault_labels.receiver]
+  scrape_interval = "60s"
+}
+
+prometheus.relabel "vault_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule { target_label = "job";      replacement = "security" }
+  rule { target_label = "service";  replacement = "vault"    }
+  rule { target_label = "instance"; replacement = env("HOSTNAME") }
+}
+{% endif %}
+
+{% if pihole_exporter_host | default('') | length > 0 %}
+prometheus.scrape "pihole" {
+  targets         = [{"__address__" = "{{ pihole_exporter_host }}:{{ pihole_exporter_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.pihole_labels.receiver]
+  scrape_interval = "60s"
+}
+
+prometheus.relabel "pihole_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule { target_label = "job";      replacement = "security" }
+  rule { target_label = "service";  replacement = "pihole"   }
+  rule { target_label = "instance"; replacement = env("HOSTNAME") }
+}
+{% endif %}
+
+{% if wireguard_exporter_host | default('') | length > 0 %}
+prometheus.scrape "wireguard" {
+  targets         = [{"__address__" = "{{ wireguard_exporter_host }}:{{ wireguard_exporter_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.wireguard_labels.receiver]
+  scrape_interval = "60s"
+}
+
+prometheus.relabel "wireguard_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule { target_label = "job";      replacement = "security"   }
+  rule { target_label = "service";  replacement = "wireguard"  }
+  rule { target_label = "instance"; replacement = env("HOSTNAME") }
+}
+{% endif %}
+
 // ── Remote write endpoints ────────────────────────────────────────────────────
 prometheus.remote_write "mimir" {
   endpoint {

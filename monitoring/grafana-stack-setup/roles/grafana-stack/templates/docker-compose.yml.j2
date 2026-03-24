@@ -63,12 +63,17 @@ services:
     image: {{ alloy_image }}
     container_name: alloy
     restart: {{ grafana_restart_policy }}
+{% if vault_metrics_token | default('') | length > 0 %}
+    environment:
+      VAULT_METRICS_TOKEN: "{{ vault_metrics_token }}"
+{% endif %}
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/log:/var/log:ro
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
     command: run /etc/alloy/config.alloy
     pid: host
     privileged: true
