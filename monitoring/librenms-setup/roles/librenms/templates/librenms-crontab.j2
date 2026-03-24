@@ -1,0 +1,2 @@
+15 0 * * * cd /opt/librenms/ && bash daily.sh
+*/{{ librenms_cron_schedule_interval }} * * * * php /opt/librenms/artisan schedule:run --no-ansi --no-interaction > /dev/null 2>&1

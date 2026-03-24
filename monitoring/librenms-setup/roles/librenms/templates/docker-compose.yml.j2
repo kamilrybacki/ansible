@@ -37,6 +37,10 @@ services:
     container_name: librenms_app
     hostname: librenms
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "{{ librenms_app_cpu_limit }}"
     ports:
       - "{{ librenms_port }}:8000"
     environment:
@@ -59,6 +63,7 @@ services:
       AUTH_HEADER: "REMOTE_USER"
     volumes:
       - librenms_data:/data
+      - {{ librenms_data_dir }}/librenms-crontab:/etc/crontabs/librenms:ro
     depends_on:
 {% if not librenms_use_shared_db %}
       - db

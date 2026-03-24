@@ -11,6 +11,12 @@
     state: directory
     mode: "0755"
 
+- name: Write custom librenms crontab
+  ansible.builtin.template:
+    src: librenms-crontab.j2
+    dest: "{{ librenms_data_dir }}/librenms-crontab"
+    mode: "0644"
+
 - name: Deploy docker-compose file
   ansible.builtin.template:
     src: docker-compose.yml.j2
