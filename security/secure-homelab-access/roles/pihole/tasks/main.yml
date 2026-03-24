@@ -100,14 +100,14 @@
 
 - name: Deploy Pi-hole Prometheus exporter
   community.docker.docker_container:
-    name: pihole-exporter
-    image: "ekofr/pihole-exporter:v0.4.0"
+    name: "{{ pihole_exporter_container_name }}"
+    image: "{{ pihole_exporter_image }}"
     state: started
     restart_policy: unless-stopped
     env:
-      PIHOLE_HOSTNAME: "pihole"
+      PIHOLE_HOSTNAME: "{{ pihole_container_name }}"
     ports:
-      - "9617:9617"
+      - "{{ pihole_exporter_port }}:{{ pihole_exporter_port }}"
     networks:
       - name: "{{ docker_network_name }}"
-  when: pihole_exporter_enabled | default(false) | bool
+  when: pihole_exporter_enabled | bool

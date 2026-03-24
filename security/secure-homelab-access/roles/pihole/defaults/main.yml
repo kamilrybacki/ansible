@@ -6,3 +6,6 @@ pihole_adlists:
     comment: "Hagezi DNS Blocklist - Multi PRO"
 
 pihole_exporter_enabled: false
+pihole_exporter_container_name: pihole-exporter
+pihole_exporter_image: "ekofr/pihole-exporter:v0.4.0"
+pihole_exporter_port: "9617"
