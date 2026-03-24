@@ -103,6 +103,8 @@
     - openclaw.json
     - node-health.json
     - docker-containers.json
+    - security-vault.json
+    - app-services.json
   notify: Restart grafana-stack
 
 - name: Deploy Grafana stack with Docker Compose
