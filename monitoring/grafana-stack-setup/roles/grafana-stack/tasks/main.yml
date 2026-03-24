@@ -81,6 +81,26 @@
     dest: "{{ grafana_data_dir }}/provisioning/datasources/datasources.yml"
     mode: "0644"
 
+- name: Create dashboards provisioning directory
+  ansible.builtin.file:
+    path: "{{ grafana_data_dir }}/provisioning/dashboards"
+    state: directory
+    mode: "0755"
+
+- name: Write dashboards provider config
+  ansible.builtin.template:
+    src: provisioning/dashboards.yml.j2
+    dest: "{{ grafana_data_dir }}/provisioning/dashboards/dashboards.yml"
+    mode: "0644"
+  notify: Restart grafana-stack
+
+- name: Copy OpenClaw dashboard
+  ansible.builtin.copy:
+    src: dashboards/openclaw.json
+    dest: "{{ grafana_data_dir }}/provisioning/dashboards/openclaw.json"
+    mode: "0644"
+  notify: Restart grafana-stack
+
 - name: Deploy Grafana stack with Docker Compose
   community.docker.docker_compose_v2:
     project_src: "{{ grafana_data_dir }}"
