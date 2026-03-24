@@ -1,2 +1,6 @@
 ---
 wireguard_image: "ghcr.io/wg-easy/wg-easy:14"
+wireguard_exporter_enabled: false
+wireguard_exporter_container_name: wireguard-exporter
+wireguard_exporter_image: "mindflavor/prometheus-wireguard-exporter:3.6.6"
+wireguard_exporter_port: "9586"
