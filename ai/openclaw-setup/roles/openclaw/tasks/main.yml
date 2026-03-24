@@ -126,11 +126,28 @@
       changed_when: "'Installed' in _telegram_install.stdout | default('')"
       failed_when: false
 
+    - name: Restart OpenClaw after Telegram plugin install
+      community.docker.docker_compose_v2:
+        project_src: "{{ openclaw_install_dir }}"
+        state: restarted
+      when: _telegram_install.changed
+
+    - name: Wait for OpenClaw after plugin install
+      ansible.builtin.command:
+        cmd: docker exec openclaw curl -sf http://localhost:18789/health
+      register: _post_plugin_health
+      until: _post_plugin_health is not failed
+      retries: "{{ openclaw_health_check_retries }}"
+      delay: "{{ openclaw_health_check_delay }}"
+      changed_when: false
+      when: _telegram_install.changed
+
     - name: Check if Telegram channel is already configured
       ansible.builtin.command:
         cmd: docker exec openclaw openclaw channels list
       register: _channels_list
       changed_when: false
+      failed_when: false
 
     - name: Add Telegram channel
       ansible.builtin.command:
