@@ -73,6 +73,7 @@
       - "80:80"
       - "443:443"
       - "443:443/udp"
+      - "0.0.0.0:2019:2019"
     volumes:
       - "{{ caddy_data_dir }}/Caddyfile:/etc/caddy/Caddyfile"
       - "{{ caddy_data_dir }}/data:/data"
@@ -82,3 +83,19 @@
     network_mode: null
     etc_hosts:
       host.docker.internal: host-gateway
+
+- name: Allow Caddy metrics from LAN (10.0.0.0/8)
+  community.general.ufw:
+    rule: allow
+    port: "2019"
+    proto: tcp
+    src: 10.0.0.0/8
+    comment: "Caddy admin metrics for Alloy"
+
+- name: Allow Caddy metrics from LAN (192.168.0.0/16)
+  community.general.ufw:
+    rule: allow
+    port: "2019"
+    proto: tcp
+    src: 192.168.0.0/16
+    comment: "Caddy admin metrics for Alloy"

@@ -12,8 +12,15 @@
 {% if cf_tunnel_name | default('') %}
 	servers {
 		trusted_proxies static private_ranges
+		metrics
+	}
+{% else %}
+	servers {
+		metrics
 	}
 {% endif %}
+
+	admin 0.0.0.0:2019
 }
 
 # -- Snippets -----------------------------------------------------------------
@@ -123,4 +130,15 @@
 	import authelia
 	redir / /admin/ 302
 	reverse_proxy {{ pihole_container_name }}:{{ pihole_internal_port }}
+}
+
+# OpenClaw AI gateway
+{{ _scheme }}{{ subdomain_openclaw }}.{{ domain }} {
+	import rate_limit
+	import proxy_headers
+{% if cloudflare_api_token | default('') and not cf_tunnel_name | default('') %}
+	import cf_tls
+{% endif %}
+	import authelia
+	reverse_proxy openclaw:{{ openclaw_proxy_port | default(18790) }}
 }
