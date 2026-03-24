@@ -127,9 +127,11 @@
       failed_when: false
 
     - name: Restart OpenClaw after Telegram plugin install
-      community.docker.docker_compose_v2:
-        project_src: "{{ openclaw_install_dir }}"
-        state: restarted
+      ansible.builtin.shell: |
+        cd {{ openclaw_install_dir }}
+        docker compose down
+        docker compose up -d
+      changed_when: true
       when: _telegram_install.changed
 
     - name: Wait for OpenClaw after plugin install
@@ -182,9 +184,11 @@
       changed_when: "'CHANGED' in _telegram_policy.stdout | default('')"
 
     - name: Restart OpenClaw to apply Telegram config
-      community.docker.docker_compose_v2:
-        project_src: "{{ openclaw_install_dir }}"
-        state: restarted
+      ansible.builtin.shell: |
+        cd {{ openclaw_install_dir }}
+        docker compose down
+        docker compose up -d
+      changed_when: true
       when: _telegram_install.changed or (_telegram_add is defined and _telegram_add.changed) or _telegram_policy.changed
 
 # --- Security hardening ---

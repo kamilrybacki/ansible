@@ -1,5 +1,10 @@
 ---
+# The socat proxy sidecar shares OpenClaw's network namespace
+# (network_mode: service:openclaw). A plain `restart` leaves the proxy
+# with a stale namespace reference. down+up avoids this.
 - name: Restart openclaw
-  community.docker.docker_compose_v2:
-    project_src: "{{ openclaw_install_dir }}"
-    state: restarted
+  ansible.builtin.shell: |
+    cd {{ openclaw_install_dir }}
+    docker compose down
+    docker compose up -d
+  changed_when: true
