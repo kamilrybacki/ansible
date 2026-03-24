@@ -115,6 +115,19 @@
   register: _agent_create
   changed_when: _agent_create.rc == 0
 
+- name: Set agent identities
+  ansible.builtin.command:
+    cmd: >-
+      docker exec openclaw openclaw agents set-identity
+      --agent {{ item.name | quote }}
+      --name {{ item.display_name | quote }}
+      --emoji {{ item.emoji | quote }}
+  loop: "{{ openclaw_agents }}"
+  loop_control:
+    label: "{{ item.name }} {{ item.emoji }}"
+  when: item.name not in _openclaw_existing_agents
+  changed_when: true
+
 # --- Telegram channel ---
 - name: Configure Telegram channel
   when: openclaw_telegram_bot_token | default('') | length > 0

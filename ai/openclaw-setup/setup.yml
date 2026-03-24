@@ -153,10 +153,10 @@
         openclaw_telegram_allowed_users: "{{ (telegram_allowed_users | default('')).split(',') | map('trim') | select | list }}"
         openclaw_primary_model: >-
           {{
-            'deepseek/deepseek-chat' if deepseek_api_key | default('') | length > 0
+            'nvidia/moonshotai/kimi-k2.5' if nvidia_api_key | default('') | length > 0
             else ('groq/llama-3.3-70b-versatile' if groq_api_key | default('') | length > 0
             else ('google/gemini-2.5-flash' if gemini_api_key | default('') | length > 0
-            else ('deepseek/deepseek-chat' if deepseek_api_key | default('') | length > 0
+            else ('nvidia/moonshotai/kimi-k2.5' if nvidia_api_key | default('') | length > 0
             else 'ollama/' + ollama_model | default('llama3.1:8b'))))
           }}
         openclaw_public_url: >-
@@ -184,10 +184,10 @@
         openclaw_telegram_allowed_users: "{{ (telegram_allowed_users | default('')).split(',') | map('trim') | select | list }}"
         openclaw_primary_model: >-
           {{
-            'deepseek/deepseek-chat' if deepseek_api_key | default('') | length > 0
+            'nvidia/moonshotai/kimi-k2.5' if nvidia_api_key | default('') | length > 0
             else ('groq/llama-3.3-70b-versatile' if groq_api_key | default('') | length > 0
             else ('google/gemini-2.5-flash' if gemini_api_key | default('') | length > 0
-            else ('deepseek/deepseek-chat' if deepseek_api_key | default('') | length > 0
+            else ('nvidia/moonshotai/kimi-k2.5' if nvidia_api_key | default('') | length > 0
             else 'ollama/' + ollama_model | default('llama3.1:8b'))))
           }}
         openclaw_public_url: >-

@@ -36,7 +36,7 @@ openclaw_ollama_image: "ollama/ollama:latest"
 
 # --- Routing defaults ---
 # Primary model for simple tasks
-openclaw_primary_model: "deepseek/deepseek-chat"
+openclaw_primary_model: "nvidia/moonshotai/kimi-k2.5"
 
 # Heartbeat model (lightweight, every 30m)
 openclaw_heartbeat_model: "groq/llama-3.3-70b-versatile"
@@ -59,12 +59,20 @@ openclaw_telegram_allowed_users: []
 openclaw_agents:
   - name: quick-chat
     model: "groq/llama-3.3-70b-versatile"
+    emoji: "💬"
+    display_name: "Quick Chat"
   - name: code-helper
-    model: "deepseek/deepseek-chat"
+    model: "nvidia/moonshotai/kimi-k2.5"
+    emoji: "💻"
+    display_name: "Code Helper"
   - name: infra-ops
-    model: "deepseek/deepseek-chat"
+    model: "nvidia/moonshotai/kimi-k2.5"
+    emoji: "🔧"
+    display_name: "Infra Ops"
   - name: deep-coder
     model: "deepseek/deepseek-chat"
+    emoji: "🧠"
+    display_name: "Deep Coder"
 
 # --- Security ---
 # Bind to all interfaces so Caddy (running in Docker) can proxy to this port.
