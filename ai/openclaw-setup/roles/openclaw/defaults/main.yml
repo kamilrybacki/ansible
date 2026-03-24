@@ -80,6 +80,10 @@ openclaw_agents:
     emoji: "🧠"
     display_name: "Deep Coder"
 
+# --- Metrics exporter ---
+openclaw_metrics_enabled: true
+openclaw_metrics_port: 9101
+
 # --- Security ---
 # Bind to all interfaces so Caddy (running in Docker) can proxy to this port.
 # UFW blocks port {{ openclaw_gateway_port }} from external access, so 0.0.0.0 is safe.

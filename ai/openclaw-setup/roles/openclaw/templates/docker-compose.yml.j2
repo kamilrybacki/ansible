@@ -8,6 +8,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./openclaw-home:/home/node/.openclaw
+      - openclaw-logs:/tmp/openclaw
     environment:
 {% if openclaw_nvidia_api_key | default('') | length > 0 %}
       NVIDIA_API_KEY: "{{ openclaw_nvidia_api_key }}"
@@ -31,7 +32,7 @@ services:
 {% endif %}
     networks:
       - homelab-net
-{% if openclaw_ollama_enabled %}
+{% if openclaw_ollama_enabled or openclaw_metrics_enabled %}
       - openclaw-net
 {% endif %}
     restart: unless-stopped
@@ -55,6 +56,35 @@ services:
     depends_on:
       openclaw:
         condition: service_healthy
+
+{% if openclaw_metrics_enabled %}
+  openclaw-metrics:
+    build:
+      context: ./openclaw-metrics
+    container_name: openclaw-metrics
+    ports:
+      - "127.0.0.1:{{ openclaw_metrics_port }}:9101"
+    volumes:
+      - ./openclaw-home:/data/openclaw-home:ro
+      - openclaw-logs:/data/openclaw-logs:ro
+    environment:
+      METRICS_PORT: "9101"
+      SESSIONS_DIR: "/data/openclaw-home"
+      LOGS_DIR: "/data/openclaw-logs"
+    networks:
+      - openclaw-net
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9101/metrics')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      openclaw:
+        condition: service_healthy
+{% endif %}
 
 {% if openclaw_ollama_enabled %}
   ollama:
@@ -82,10 +112,15 @@ services:
       - openclaw-net
 {% endif %}
 
+{% if openclaw_metrics_enabled %}
+volumes:
+  openclaw-logs:
+
+{% endif %}
 networks:
   homelab-net:
     external: true
-{% if openclaw_ollama_enabled %}
+{% if openclaw_ollama_enabled or openclaw_metrics_enabled %}
   openclaw-net:
     driver: bridge
 {% endif %}
