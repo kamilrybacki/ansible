@@ -3,6 +3,7 @@ apiVersion: 1
 datasources:
   - name: Loki
     type: loki
+    uid: loki
     access: proxy
     url: http://loki:{{ loki_port }}
     isDefault: false
@@ -10,6 +11,7 @@ datasources:
 
   - name: Mimir
     type: prometheus
+    uid: mimir
     access: proxy
     url: http://mimir:{{ mimir_port }}/prometheus
     isDefault: true
