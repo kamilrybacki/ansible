@@ -5,6 +5,7 @@
       "nvidia": {
         "apiKey": "{{ openclaw_nvidia_api_key }}",
         "baseUrl": "https://integrate.api.nvidia.com/v1",
+        "api": "openai-completions",
         "models": [
           { "id": "moonshotai/kimi-k2.5", "name": "Kimi K2.5", "contextWindow": 131072, "cost": { "input": 0, "output": 0 } },
           { "id": "minimaxai/minimax-m2.5", "name": "MiniMax M2.5", "contextWindow": 131072, "cost": { "input": 0, "output": 0 } },
@@ -19,6 +20,7 @@
       "groq": {
         "apiKey": "{{ openclaw_groq_api_key }}",
         "baseUrl": "https://api.groq.com/openai/v1",
+        "api": "openai-completions",
         "models": [
           { "id": "llama-3.3-70b-versatile", "name": "Llama 3.3 70B", "contextWindow": 131072, "cost": { "input": 0, "output": 0 } },
           { "id": "llama-4-scout-17b-16e-instruct", "name": "Llama 4 Scout 17B", "contextWindow": 131072, "cost": { "input": 0, "output": 0 } },
@@ -30,6 +32,7 @@
       "google": {
         "apiKey": "{{ openclaw_gemini_api_key }}",
         "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "api": "openai-completions",
         "models": [
           { "id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "contextWindow": 1048576, "cost": { "input": 0, "output": 0 } }
         ]
@@ -39,6 +42,7 @@
       "deepseek": {
         "apiKey": "{{ openclaw_deepseek_api_key }}",
         "baseUrl": "https://api.deepseek.com/v1",
+        "api": "openai-completions",
         "models": [
           { "id": "deepseek-chat", "name": "DeepSeek Chat V3", "contextWindow": 131072, "cost": { "input": 0.27, "output": 1.10 } },
           { "id": "deepseek-reasoner", "name": "DeepSeek Reasoner R1", "contextWindow": 131072, "cost": { "input": 0.55, "output": 2.20 } }
