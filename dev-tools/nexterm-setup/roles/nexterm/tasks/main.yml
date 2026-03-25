@@ -36,6 +36,7 @@
   loop: "{{ nexterm_connections }}"
   changed_when: false
   become: false
+  ignore_errors: true
 
 - name: Create patches directory for Nexterm overrides
   ansible.builtin.file:
