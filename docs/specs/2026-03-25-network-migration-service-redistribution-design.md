@@ -84,27 +84,40 @@ On node2:
 
 ```yaml
 # shared-postgres-setup/group_vars/all.yml
-shared_postgres_bind_address: "0.0.0.0"  # was 10.0.0.2
+shared_postgres_bind_address: "10.0.1.2"  # was 10.0.0.2 — bind to NAS link IP only
 
 # shared-mariadb-setup/group_vars/all.yml
-shared_mariadb_bind_address: "0.0.0.0"   # was 10.0.0.2
+shared_mariadb_bind_address: "10.0.1.2"   # was 10.0.0.2
 
 # shared-redis-setup/group_vars/all.yml
-shared_redis_bind_address: "0.0.0.0"     # was 10.0.0.2
+shared_redis_bind_address: "10.0.1.2"     # was 10.0.0.2
 
 # common/shared-database/defaults.yml
 shared_db_host: "10.0.1.2"               # was 10.0.0.2
 ```
 
-**Migration steps:**
-1. Deploy fresh database containers on NAS
-2. Dump data from node2: `pg_dumpall`, `mysqldump --all-databases`, Redis `BGSAVE`
-3. Restore on NAS
-4. Update all service configs to point to `{{ nas_ip }}`
-5. Verify connectivity from node1 and node2
-6. Stop old database containers on node2
+**Also update `vars_prompt` defaults** in these setup playbooks:
 
-**Bind address security:** Databases bind to `0.0.0.0` because consumers are on multiple subnets (10.0.1.x, 192.168.0.x). UFW on the NAS restricts access to known source IPs only.
+| File | Change |
+|------|--------|
+| `infrastructure/shared-postgres-setup/setup.yml` | `default: "10.0.0.2"` → `default: "10.0.1.2"` |
+| `infrastructure/shared-mariadb-setup/setup.yml` | `default: "10.0.0.2"` → `default: "10.0.1.2"` |
+| `infrastructure/shared-redis-setup/setup.yml` | `default: "10.0.0.2"` → `default: "10.0.1.2"` |
+| `infrastructure/service-startup-setup/setup.yml` | `default: "10.0.0.2"` → `default: "10.0.1.2"` |
+| `infrastructure/migrate-to-shared/migrate.yml` | `default: "10.0.0.2"` → `default: "10.0.1.2"` |
+| `infrastructure/migrate-to-shared/cleanup.yml` | `default: "10.0.0.2"` → `default: "10.0.1.2"` |
+| `infrastructure/netbox-agent-setup/setup.yml` | Update example IPs in prompts |
+
+**Migration steps:**
+1. Verify Docker is running on NAS (prerequisite from Phase 1)
+2. Deploy fresh database containers on NAS
+3. Dump data from node2: `pg_dumpall`, `mysqldump --all-databases`, Redis `BGSAVE`
+4. Restore on NAS
+5. **Verify data integrity:** row count comparisons for critical tables (netbox, paperless, n8n)
+6. Verify connectivity from node1 and node2
+7. Stop old database containers on node2
+
+**Bind address security:** Databases bind to `10.0.1.2` (the NAS link IP), NOT `0.0.0.0`. This avoids the Docker + UFW bypass issue where Docker's iptables rules circumvent UFW on published ports. All consumers reach the NAS via `10.0.1.2` — node1 directly via USB ethernet, node2 via static route through node1.
 
 ---
 
@@ -117,7 +130,7 @@ shared_db_host: "10.0.1.2"               # was 10.0.0.2
 **Steps:**
 1. Deploy Paperless container on NAS
 2. Copy media/data directory from node2 → NAS
-3. Point at shared-postgres on localhost (same host now)
+3. Point at shared-postgres on localhost (`10.0.1.2`) and **shared-redis on localhost** (`10.0.1.2`, DB 3)
 4. Verify document access
 5. Update Caddy: `paperless.{{ domain }}` → `{{ nas_ip }}:8000`
 6. Update Paperless MCP: `paperless_api_url: "http://{{ nas_ip }}:8000"`
@@ -125,11 +138,16 @@ shared_db_host: "10.0.1.2"               # was 10.0.0.2
 
 ### Seafile Deployment
 
-**Playbook:** Existing `files/seafile-setup/`
+**Playbook:** Existing `files/seafile-setup/` — **requires refactoring**
 
-**Steps:**
-1. Deploy Seafile on NAS using shared-mariadb (localhost)
-2. Add Caddy entry: `seafile.{{ domain }}` → `{{ nas_ip }}:<port>`
+The existing playbook bundles its own standalone MariaDB (`seafile-db`) and Caddy (`seafile-caddy`) containers. Refactoring needed:
+1. Remove bundled `seafile-db` container — wire Seafile to shared-mariadb on the same host
+2. Remove bundled `seafile-caddy` — route through main Caddy on node1
+3. Assign port **8082** for Seafile (avoids conflict with LibreNMS on 8080)
+
+**Steps after refactoring:**
+1. Deploy Seafile on NAS using shared-mariadb (localhost `10.0.1.2`)
+2. Add Caddy entry: `seafile.{{ domain }}` → `{{ nas_ip }}:8082`
 3. Add Homepage entry
 4. Configure Authelia OIDC if supported
 
@@ -151,26 +169,32 @@ shared_db_host: "10.0.1.2"               # was 10.0.0.2
 
 ## Phase 5: IP Migration — All Config Updates
 
-### Caddy Routing (Caddyfile.j2)
+### Caddy Routing
 
-| Subdomain | Old Target | New Target |
-|-----------|-----------|------------|
-| `n8n.{{ domain }}` | `10.0.0.2:5678` | `{{ node2_ip }}:5678` |
-| `netbox.{{ domain }}` | `10.0.0.2:8081` | `localhost:8081` |
-| `paperless.{{ domain }}` | `10.0.0.2:8000` | `{{ nas_ip }}:8000` |
-| `seafile.{{ domain }}` | (new) | `{{ nas_ip }}:<port>` |
-| `dify.{{ domain }}` | (new) | `{{ node2_ip }}:<port>` |
-| All node1 services | unchanged | unchanged |
+**Note:** Not all routes live in `Caddyfile.j2`. Some services (n8n, Grafana, LibreNMS) dynamically append their Caddy routes via their own `setup.yml` playbooks directly into `/opt/homelab/caddy/Caddyfile`. The table below indicates which mechanism each route uses.
+
+| Subdomain | Old Target | New Target | Route Mechanism |
+|-----------|-----------|------------|-----------------|
+| `n8n.{{ domain }}` | `10.0.0.2:5678` | `{{ node2_ip }}:5678` | **Dynamic** (n8n-setup/setup.yml) |
+| `netbox.{{ domain }}` | `10.0.0.2:8081` | `localhost:8081` | **Dynamic** (netbox-setup/setup.yml) |
+| `paperless.{{ domain }}` | `10.0.0.2:8000` | `{{ nas_ip }}:8000` | **Dynamic** (paperless-setup/setup.yml) |
+| `seafile.{{ domain }}` | (new) | `{{ nas_ip }}:8082` | **Dynamic** (seafile-setup/setup.yml) |
+| `dify.{{ domain }}` | (new) | `{{ node2_ip }}:80` | **Dynamic** (dify-setup/setup.yml) |
+| `grafana.{{ domain }}` | localhost:3000 | unchanged | **Dynamic** (grafana-stack-setup/setup.yml) |
+| Core services (auth, home, cockpit, wg, pihole, openclaw) | various | unchanged | **Template** (Caddyfile.j2) |
 
 ### Monitoring (Alloy)
 
 | Config | Old | New |
 |--------|-----|-----|
-| Alloy agent (node2) → Mimir | `10.0.0.1:9009` | `{{ node1_ip }}:9009` |
-| Alloy agent (node2) → Loki | `10.0.0.1:3100` | `{{ node1_ip }}:3100` |
+| Alloy agent (node2) → Mimir | `10.0.0.1:9009` (vars_prompt default) | `{{ node1_ip }}:9009` |
+| Alloy agent (node2) → Loki | `10.0.0.1:3100` (vars_prompt default) | `{{ node1_ip }}:3100` |
 | New: Alloy agent on NAS | — | Reports to `{{ node1_ip }}:9009` and `{{ node1_ip }}:3100` |
 | Netbox scrape | `10.0.0.2:8081` | `localhost:8081` |
 | Paperless probe | `10.0.0.2:8000` | `{{ nas_ip }}:8000` |
+| Grafana stack `group_vars/all.yml` probe URLs | `probe_*_url: 10.0.0.2:*` | Update to new targets |
+
+**Note:** Alloy agent setup uses `vars_prompt` for Mimir/Loki host — update the prompt defaults, not hardcoded template values.
 
 ### Other References
 
@@ -179,7 +203,9 @@ shared_db_host: "10.0.1.2"               # was 10.0.0.2
 | `nexterm-setup/group_vars/all.yml` | `10.0.0.1`, `10.0.0.2` | `{{ node1_ip }}`, `{{ node2_ip }}` |
 | `paperless-mcp-setup/group_vars/all.yml` | `http://10.0.0.2:8000` | `http://{{ nas_ip }}:8000` |
 | `github-runner-setup/inventory/hosts.ini` | `10.0.0.2` | `{{ node2_ip }}` |
-| `alloy-agent-setup` templates | `10.0.0.1` references | `{{ node1_ip }}` |
+| `alloy-agent-setup` vars_prompt defaults | `10.0.0.1` example | `{{ node1_ip }}` |
+| `dev-tools/grepai-setup/` Ollama reference | localhost Ollama | `{{ compute_ip }}` (after Phase 7) |
+| `common/shared-database/detect.yml` | May reference `10.0.0.x` | Update to `{{ nas_ip }}` |
 
 ### Homepage Dashboard
 
@@ -190,11 +216,20 @@ No IP changes needed — Homepage uses `https://<subdomain>.{{ domain }}` URLs w
 
 ### Authelia Access Control
 
-No changes needed. Existing policies already cover:
-- `172.20.0.0/24` — Docker bypass
-- `10.8.0.0/24` — WireGuard single-factor
-- `10.0.0.0/8` — homelab nodes (covers NAS 10.0.1.x)
-- `192.168.0.0/16` — LAN single-factor
+**Tighten network policies.** The `10.0.0.0/8` rule was intended for two nodes on `10.0.0.0/24` which no longer exists. Narrow it:
+
+| Old | New | Reason |
+|-----|-----|--------|
+| `10.0.0.0/8` (single-factor) | `10.0.1.0/24` (single-factor) | Only NAS link uses 10.x now |
+| `10.8.0.0/24` | unchanged | WireGuard VPN |
+| `192.168.0.0/16` | unchanged | LAN |
+| `172.20.0.0/24` | unchanged | Docker bypass |
+
+Also update Caddy UFW rule in `security/secure-homelab-access/roles/caddy/tasks/main.yml`: change metrics allow from `10.0.0.0/8` → `10.0.1.0/24`.
+
+### Post-Migration: Restart All Services
+
+After all IP changes, restart all service containers on every node to clear DNS caches and stale connections. Any service that cached `10.0.0.x` addresses will pick up the new targets.
 
 ---
 
@@ -247,6 +282,18 @@ Phase 7 is independent — Proxmox install can begin as soon as the network is s
 
 ---
 
+## Known Risks
+
+**NAS as single point of failure:** All databases move to a single NAS connected via USB ethernet. If the NAS or the link goes down, every database-dependent service fails. Mitigation: scheduled `pg_dumpall` and `mysqldump` backups to node1 via cron (daily at minimum).
+
+**USB ethernet bandwidth:** The USB adapter runs at 10Mb/s. Fine for database queries but could bottleneck bulk data transfers (Paperless document uploads, Seafile syncs). Monitor and consider upgrading to a PCIe NIC or gigabit USB 3.0 adapter if needed.
+
+**Netbox database latency:** Netbox on node1 connects to PostgreSQL on the NAS via the USB link. The 10Mb/s link adds latency compared to localhost. Acceptable for a homelab but worth monitoring.
+
+**Cloudflared config:** `security/secure-homelab-access/roles/cloudflared/templates/config.yml.j2` routes `*.{{ domain }}` to `localhost:80` — this is correct and needs no IP changes (already updated to http2 protocol in this session).
+
+---
+
 ## Rollback Strategy
 
 Each phase is independently reversible:
@@ -259,18 +306,56 @@ Each phase is independently reversible:
 
 ## Files Modified
 
+### Core networking & variables
 | File | Changes |
 |------|---------|
-| `security/secure-homelab-access/roles/caddy/templates/Caddyfile.j2` | Update proxy targets to variables |
 | `security/secure-homelab-access/group_vars/all.yml` | Add node IP variables |
-| `common/shared-database/defaults.yml` | `shared_db_host` → `{{ nas_ip }}` |
-| `infrastructure/shared-postgres-setup/group_vars/all.yml` | Bind to `0.0.0.0` |
-| `infrastructure/shared-mariadb-setup/group_vars/all.yml` | Bind to `0.0.0.0` |
-| `infrastructure/shared-redis-setup/group_vars/all.yml` | Bind to `0.0.0.0` |
+| `common/shared-database/defaults.yml` | `shared_db_host` → `10.0.1.2` |
+| `common/shared-database/detect.yml` | Update any `10.0.0.x` references |
+| **New:** `infrastructure/nas-link-setup/` | Full NAS networking automation |
+
+### Database infrastructure
+| File | Changes |
+|------|---------|
+| `infrastructure/shared-postgres-setup/group_vars/all.yml` | Bind to `10.0.1.2` |
+| `infrastructure/shared-postgres-setup/setup.yml` | vars_prompt default → `10.0.1.2` |
+| `infrastructure/shared-mariadb-setup/group_vars/all.yml` | Bind to `10.0.1.2` |
+| `infrastructure/shared-mariadb-setup/setup.yml` | vars_prompt default → `10.0.1.2` |
+| `infrastructure/shared-redis-setup/group_vars/all.yml` | Bind to `10.0.1.2` |
+| `infrastructure/shared-redis-setup/setup.yml` | vars_prompt default → `10.0.1.2` |
+| `infrastructure/service-startup-setup/setup.yml` | vars_prompt default → `10.0.1.2` |
+| `infrastructure/migrate-to-shared/migrate.yml` | vars_prompt default → `10.0.1.2` |
+| `infrastructure/migrate-to-shared/cleanup.yml` | vars_prompt default → `10.0.1.2` |
+| `infrastructure/netbox-agent-setup/setup.yml` | Update example IPs in prompts |
+
+### Security & access control
+| File | Changes |
+|------|---------|
+| `security/secure-homelab-access/roles/caddy/templates/Caddyfile.j2` | Update core proxy targets |
+| `security/secure-homelab-access/roles/caddy/tasks/main.yml` | UFW metrics: `10.0.0.0/8` → `10.0.1.0/24` |
+| `security/secure-homelab-access/roles/authelia/templates/configuration.yml.j2` | Narrow `10.0.0.0/8` → `10.0.1.0/24` |
+
+### Service playbooks (dynamic Caddy routes)
+| File | Changes |
+|------|---------|
+| `automation/n8n-setup/setup.yml` | Caddy route: `{{ node2_ip }}:5678` |
+| `monitoring/netbox-setup/setup.yml` | Caddy route: `localhost:8081` |
+| `files/paperless-setup/setup.yml` | Caddy route: `{{ nas_ip }}:8000` |
+| `files/seafile-setup/` | Refactor: remove bundled DB/Caddy, use shared-mariadb, port 8082 |
+| `ai/dify-setup/setup.yml` | Caddy route: `{{ node2_ip }}:80` |
+
+### Monitoring
+| File | Changes |
+|------|---------|
+| `monitoring/grafana-stack-setup/group_vars/all.yml` | Update probe URLs |
 | `monitoring/grafana-stack-setup/roles/*/templates/alloy.river.j2` | Update scrape targets |
-| `monitoring/alloy-agent-setup/` templates | `{{ node1_ip }}` for Mimir/Loki |
+| `monitoring/alloy-agent-setup/` vars_prompt defaults | `{{ node1_ip }}` for Mimir/Loki |
+
+### Dev tools & other
+| File | Changes |
+|------|---------|
 | `dev-tools/nexterm-setup/group_vars/all.yml` | Update host IPs |
 | `dev-tools/paperless-mcp-setup/group_vars/all.yml` | Update API URL |
 | `dev-tools/github-runner-setup/inventory/hosts.ini` | Update node2 IP |
+| `dev-tools/grepai-setup/` | Update Ollama reference (after Phase 7) |
 | `security/secure-homelab-access/roles/homepage/templates/services.yaml.j2` | Add Seafile, Dify entries |
-| **New:** `infrastructure/nas-link-setup/` | Full NAS networking automation |
