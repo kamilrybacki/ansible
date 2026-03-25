@@ -200,47 +200,6 @@
           changed_when: true
           no_log: true
 
-    # ── LibreNMS MariaDB ──
-    - name: Migrate LibreNMS MariaDB data
-      tags: [librenms]
-      block:
-        - name: Load shared MariaDB root password
-          ansible.builtin.set_fact:
-            _shared_mariadb_root_pw: "{{ lookup('file', lookup('env', 'HOME') + '/.homelab-secrets/shared-mariadb/root_password') }}"
-          no_log: true
-          delegate_to: localhost
-          become: false
-
-        - name: Load LibreNMS local DB password
-          ansible.builtin.set_fact:
-            _librenms_local_db_pw: "{{ lookup('file', lookup('env', 'HOME') + '/.homelab-secrets/librenms/db_password') }}"
-          no_log: true
-          delegate_to: localhost
-          become: false
-
-        - name: Create LibreNMS migration directory
-          ansible.builtin.file:
-            path: /opt/librenms/migration
-            state: directory
-            mode: "0700"
-
-        - name: Dump LibreNMS database
-          ansible.builtin.shell: >
-            docker exec librenms_db
-            mysqldump -u root -p"root_{{ _librenms_local_db_pw }}"
-            --databases librenms
-            > /opt/librenms/migration/librenms_dump.sql
-          changed_when: true
-          no_log: true
-
-        - name: Restore LibreNMS into shared MariaDB
-          ansible.builtin.shell: >
-            docker exec -i shared-mariadb
-            mysql -u root -p"{{ _shared_mariadb_root_pw }}"
-            < /opt/librenms/migration/librenms_dump.sql
-          changed_when: true
-          no_log: true
-
     # ── Dify PostgreSQL ──
     - name: Migrate Dify PostgreSQL data
       tags: [dify]

@@ -14,6 +14,3 @@ shared_mariadb_tenants:
       - ccnet_db
       - seafile_db
       - seahub_db
-  - name: librenms
-    databases:
-      - librenms

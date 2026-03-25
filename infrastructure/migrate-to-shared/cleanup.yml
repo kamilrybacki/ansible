@@ -55,8 +55,6 @@
         - paperless-db
         - paperless-redis
         - seafile-db
-        - librenms_db
-        - librenms_redis
       failed_when: false
 
     - name: Remove old Docker volumes (names include compose project prefix)
@@ -70,7 +68,6 @@
         - paperless-db-data
         - paperless-redis-data
         - seafile-db-data
-        - librenms_db_data
       changed_when: true
       failed_when: false
 
@@ -83,7 +80,6 @@
         - /opt/netbox/migration
         - /opt/paperless/migration
         - /opt/seafile/migration
-        - /opt/librenms/migration
 
     - name: Cleanup complete
       ansible.builtin.debug:

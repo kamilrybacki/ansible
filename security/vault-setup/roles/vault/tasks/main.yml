@@ -249,7 +249,6 @@
     - paperless
     - seafile
     - netbox
-    - librenms
     - swe-af
     - claude-n8n-mcp
     - proxmox
@@ -285,7 +284,6 @@
         homelab/paperless       – admin credentials
         homelab/seafile         – admin + DB credentials
         homelab/netbox          – admin credentials
-        homelab/librenms        – SNMP community, DB password
         homelab/swe-af          – AI provider API key, GitHub token
         homelab/claude-n8n-mcp  – n8n MCP token
         homelab/proxmox         – API password, SSH public key

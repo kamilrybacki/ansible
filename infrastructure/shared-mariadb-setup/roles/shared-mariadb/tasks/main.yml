@@ -87,6 +87,5 @@
       Root user: root
       Tenants:
         seafile  -> ccnet_db, seafile_db, seahub_db
-        librenms -> librenms
 
       Credentials stored in ~/.homelab-secrets/shared-mariadb/
