@@ -19,12 +19,12 @@
     - "{{ grafana_data_dir }}/alloy"
     - "{{ grafana_data_dir }}/provisioning/datasources"
 
-- name: Allow Loki from LAN (10.0.0.0/8)
+- name: Allow Loki from NAS link (10.0.1.0/24)
   community.general.ufw:
     rule: allow
     port: "{{ loki_port }}"
     proto: tcp
-    src: 10.0.0.0/8
+    src: 10.0.1.0/24
     comment: "Loki for Grafana Alloy agents"
 
 - name: Allow Loki from LAN (192.168.0.0/16)
@@ -35,12 +35,12 @@
     src: 192.168.0.0/16
     comment: "Loki for Grafana Alloy agents"
 
-- name: Allow Mimir from LAN (10.0.0.0/8)
+- name: Allow Mimir from NAS link (10.0.1.0/24)
   community.general.ufw:
     rule: allow
     port: "{{ mimir_port }}"
     proto: tcp
-    src: 10.0.0.0/8
+    src: 10.0.1.0/24
     comment: "Mimir for Grafana Alloy agents"
 
 - name: Allow Mimir from LAN (192.168.0.0/16)
