@@ -8,7 +8,7 @@ node1_nas_link_mac: "00:e0:4c:36:01:58"
 node1_wifi_iface: "wlx30169dd56e93"
 node1_wired_iface: "eno1"
 
-# NAS (lw35) — onboard ethernet to Node1
+# NAS (lw-nas) — onboard ethernet to Node1
 nas_ip: "10.0.1.2"
 nas_prefix: 24
 nas_iface: "eno1"
