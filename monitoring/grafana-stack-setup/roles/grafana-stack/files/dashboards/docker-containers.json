@@ -155,7 +155,7 @@
             "type": "prometheus",
             "uid": "mimir"
           },
-          "expr": "sum(docker_container_cpu_usage_percentage{job=\"docker-exporter\", instance=~\"$node\", name=~\"$container\"}) or vector(0)",
+          "expr": "sum(docker_container_cpu_usage_percentage{job=\"docker-exporter\", instance=~\"$node\", name=~\"$container\"}) / scalar(count without(cpu, mode) (node_cpu_seconds_total{job=\"node\", instance=~\"$node\", mode=\"idle\"})) or vector(0)",
           "instant": true,
           "refId": "A"
         }
@@ -405,12 +405,12 @@
             "type": "prometheus",
             "uid": "mimir"
           },
-          "expr": "docker_container_cpu_usage_percentage{job=\"docker-exporter\", instance=~\"$node\", name=~\"$container\"}",
+          "expr": "docker_container_cpu_usage_percentage{job=\"docker-exporter\", instance=~\"$node\", name=~\"$container\"} / on(instance) group_left() count without(cpu, mode) (node_cpu_seconds_total{job=\"node\", instance=~\"$node\", mode=\"idle\"})",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
-      "title": "CPU Usage per Container (%)",
+      "title": "CPU Usage per Container (% of host)",
       "type": "timeseries"
     },
     {
