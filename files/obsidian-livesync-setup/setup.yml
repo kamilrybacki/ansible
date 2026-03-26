@@ -113,6 +113,9 @@
     _caddy_proxy_host: "{{ docker_gateway_ip | default('172.20.0.1') if _target_host_ip in ['localhost', '127.0.0.1', '::1'] else _target_host_ip }}"
     couchdb_hostname: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_hostname'] | default('couchdb') }}"
     couchdb_port: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_port'] | default(5984) }}"
+    _couchdb_admin_user: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_admin_user'] | default('admin') }}"
+    _couchdb_admin_password: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_admin_password'] | default('') }}"
+    _couchdb_basic_auth: "{{ (_couchdb_admin_user + ':' + _couchdb_admin_password) | b64encode }}"
   tasks:
     - name: Integrate when secure homelab is configured
       when: hostvars['localhost']['_homelab_vars_stat'].stat.exists
@@ -139,10 +142,12 @@
                 import rate_limit
                 import proxy_headers
 
-                @fauxton path /_utils/*
+                @fauxton path /_utils/* /_utils
                 handle @fauxton {
                   import authelia
-                  reverse_proxy http://{{ _caddy_proxy_host }}:{{ couchdb_port }}
+                  reverse_proxy http://{{ _caddy_proxy_host }}:{{ couchdb_port }} {
+                    header_up Authorization "Basic {{ _couchdb_basic_auth }}"
+                  }
                 }
 
                 handle {
