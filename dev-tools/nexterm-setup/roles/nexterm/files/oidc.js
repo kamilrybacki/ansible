@@ -116,8 +116,17 @@ async function buildOIDCConfig(provider) {
         const res = await fetch(u.toString(), options);
         if (u.pathname.includes('.well-known') && (res.headers.get('content-type') || '').includes('json')) {
             const json = await res.json();
-            json.issuer = 'https://' + authHost;
+            const externalOrigin = 'https://' + authHost;
+            json.issuer = externalOrigin;
             json.authorization_response_iss_parameter_supported = false;
+            // Rewrite all endpoint URLs from internal (http://authelia:9091)
+            // to external (https://auth.domain) so browser redirects work.
+            const internalOrigin = internalBase.origin;
+            for (const key of Object.keys(json)) {
+                if (typeof json[key] === 'string' && json[key].startsWith(internalOrigin)) {
+                    json[key] = json[key].replace(internalOrigin, externalOrigin);
+                }
+            }
             return new Response(JSON.stringify(json), { status: res.status, headers: { 'content-type': 'application/json' } });
         }
         return res;
