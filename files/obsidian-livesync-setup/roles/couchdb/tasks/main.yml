@@ -6,14 +6,14 @@
 
 - name: Create CouchDB data directories
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: "{{ item.path }}"
     state: directory
-    mode: "0700"
-    owner: root
-    group: root
+    mode: "{{ item.mode }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
   loop:
-    - "{{ couchdb_data_dir }}"
-    - "{{ couchdb_data_dir }}/data"
+    - { path: "{{ couchdb_data_dir }}", mode: "0755", owner: root, group: root }
+    - { path: "{{ couchdb_data_dir }}/data", mode: "0700", owner: "5984", group: "5984" }
 
 - name: Ensure local secrets directory exists
   ansible.builtin.file:
@@ -52,9 +52,9 @@
   ansible.builtin.template:
     src: local.ini.j2
     dest: "{{ couchdb_data_dir }}/local.ini"
-    mode: "0600"
-    owner: root
-    group: root
+    mode: "0644"
+    owner: "5984"
+    group: "5984"
   notify: restart couchdb
 
 - name: Template Docker Compose file
