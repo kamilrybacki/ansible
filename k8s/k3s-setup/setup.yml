@@ -31,17 +31,15 @@
     - k9s
 
 - name: Deploy Headlamp dashboard
-  hosts: localhost
-  connection: local
+  hosts: compute
   environment:
-    KUBECONFIG: "{{ kubeconfig_local_path }}"
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   roles:
     - headlamp
 
 - name: Deploy ArgoCD GitOps controller
-  hosts: localhost
-  connection: local
+  hosts: compute
   environment:
-    KUBECONFIG: "{{ kubeconfig_local_path }}"
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   roles:
     - argocd
