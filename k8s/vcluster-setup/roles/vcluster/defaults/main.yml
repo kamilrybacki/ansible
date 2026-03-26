@@ -1,6 +1,0 @@
----
-vcluster_namespace: "test"
-vcluster_name: "test-cluster"
-vcluster_chart_version: "0.20.0"
-vcluster_ready_retries: 20
-vcluster_ready_delay: 10

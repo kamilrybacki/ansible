@@ -1,3 +1,0 @@
----
-runner_namespace: github-runners
-runner_replicas: 2
