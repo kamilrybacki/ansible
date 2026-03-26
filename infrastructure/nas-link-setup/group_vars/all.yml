@@ -33,3 +33,4 @@ nas_allowed_clients:
   - "10.0.1.1"        # Node1 via direct link
   - "192.168.0.105"   # Node1 via LAN
   - "192.168.0.108"   # Node2 via LAN
+  - "192.168.0.107"   # lw-c1 (compute node)

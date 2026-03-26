@@ -20,3 +20,10 @@
   gather_facts: true
   roles:
     - nas-link-route
+
+- name: Add NAS subnet route on lw-c1
+  hosts: compute
+  become: true
+  gather_facts: true
+  roles:
+    - nas-link-route
