@@ -13,7 +13,7 @@ syncthing_pgid: "1000"
 
 # Quartz
 quartz_container_name: quartz
-quartz_port: 8080
+quartz_port: 8081
 quartz_data_dir: /opt/knowledge-vault/quartz
 quartz_restart_policy: unless-stopped
 quartz_health_check_retries: 30
