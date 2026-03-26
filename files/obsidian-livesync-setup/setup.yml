@@ -142,8 +142,23 @@
                 import rate_limit
                 import proxy_headers
 
-                @fauxton path /_utils/* /_utils
+                @fauxton {
+                  path /_utils /_utils/*
+                  not header Authorization *
+                }
                 handle @fauxton {
+                  import authelia
+                  reverse_proxy http://{{ _caddy_proxy_host }}:{{ couchdb_port }} {
+                    header_up Authorization "Basic {{ _couchdb_basic_auth }}"
+                  }
+                }
+
+                @fauxton_api {
+                  not path /_utils /_utils/*
+                  not header Authorization *
+                  header Cookie *
+                }
+                handle @fauxton_api {
                   import authelia
                   reverse_proxy http://{{ _caddy_proxy_host }}:{{ couchdb_port }} {
                     header_up Authorization "Basic {{ _couchdb_basic_auth }}"
