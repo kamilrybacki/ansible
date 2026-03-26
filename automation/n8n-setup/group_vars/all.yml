@@ -32,6 +32,14 @@ n8n_workflows_repo: "https://github.com/kamilrybacki/n8n-workflows"
 n8n_workflows_branch: main
 n8n_workflows_clone_dir: /tmp/n8n-workflows
 
+# Queue mode — set to true to switch n8n to queue execution mode
+n8n_queue_mode: true
+
+# Redis queue (lw-nas) — only used when n8n_queue_mode is true
+n8n_queue_redis_host: "10.0.1.2"
+n8n_queue_redis_port: "6379"
+n8n_queue_redis_db: "0"
+
 # Mount host SSH key read-only so Execute Command nodes can SSH to homelab nodes
 n8n_extra_volumes:
   - "/home/kamil/.ssh/n8n-backup-key:/home/node/.ssh/n8n-backup-key:ro"

@@ -29,7 +29,7 @@
 - name: Load saved homelab configuration (if available)
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
   tasks:
     - name: Check for homelab setup vars
       ansible.builtin.stat:
@@ -97,7 +97,14 @@
         n8n_owner_last_name: "User"
         n8n_bind_address: "{{ '127.0.0.1' if n8n_host_ip in ['localhost', '127.0.0.1', '::1'] else '0.0.0.0' }}"
         n8n_workflows_repo_token: "{{ hostvars['localhost']['_vault_secrets']['workflows_repo_token'] | default('') }}"
-        n8n_vault_addr: "{{ hostvars['localhost']['_vault_addr'] | default('') }}"
+        n8n_vault_addr: >-
+          {{
+            hostvars['localhost']['_vault_addr'] | default('')
+            if n8n_host_ip in ['localhost', '127.0.0.1', '::1']
+            else hostvars['localhost']['_vault_addr'] | default('')
+                 | regex_replace('://127\\.0\\.0\\.1:', '://' + hostvars['localhost']['ansible_default_ipv4']['address'] + ':')
+                 | regex_replace('://localhost:', '://' + hostvars['localhost']['ansible_default_ipv4']['address'] + ':')
+          }}
         n8n_vault_reader_token: "{{ hostvars['localhost']['_n8n_vault_reader_token'] | default('') }}"
         n8n_public_url: >-
           {{

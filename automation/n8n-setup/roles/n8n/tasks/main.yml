@@ -27,7 +27,7 @@
     volumes: "{{ [n8n_volume_name + ':/home/node/.n8n'] + n8n_extra_volumes }}"
     networks:
       - name: "{{ n8n_network_name }}"
-    env: "{{ _n8n_env | combine(_n8n_public_url_env) }}"
+    env: "{{ _n8n_env | combine(_n8n_public_url_env) | combine(_n8n_queue_env) }}"
     comparisons:
       env: ignore   # vault-n8n-sync daemon owns N8N_VAR_* — Ansible must not fight it
   vars:
@@ -39,6 +39,16 @@
       N8N_EXTERNAL_SECRETS_UPDATE_INTERVAL: "{{ n8n_external_secrets_update_interval }}"
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
     _n8n_public_url_env: "{{ {'N8N_EDITOR_BASE_URL': n8n_public_url, 'WEBHOOK_URL': n8n_public_url} if n8n_public_url | default('') != '' else {} }}"
+    _n8n_queue_env: >-
+      {{
+        {
+          'EXECUTIONS_MODE': 'queue',
+          'QUEUE_BULL_REDIS_HOST': n8n_queue_redis_host,
+          'QUEUE_BULL_REDIS_PORT': n8n_queue_redis_port,
+          'QUEUE_BULL_REDIS_DB': n8n_queue_redis_db
+        }
+        if n8n_queue_mode | default(false) | bool else {}
+      }}
 
 - name: Wait for n8n to become reachable
   ansible.builtin.uri:
