@@ -1,0 +1,47 @@
+---
+- name: Fetch kubeconfig from lw-c1
+  ansible.builtin.fetch:
+    src: "{{ kubeconfig_remote_path }}"
+    dest: "/tmp/lw-c1-kubeconfig.yaml"
+    flat: true
+
+- name: Rewrite server address to node LAN IP
+  ansible.builtin.replace:
+    path: "/tmp/lw-c1-kubeconfig.yaml"
+    regexp: 'https://127\.0\.0\.1:6443'
+    replace: "https://{{ k3s_node_ip }}:6443"
+  delegate_to: localhost
+  become: false
+
+- name: Ensure ~/.kube directory exists
+  ansible.builtin.file:
+    path: "{{ kubeconfig_local_path | dirname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Install kubeconfig locally
+  ansible.builtin.copy:
+    src: "/tmp/lw-c1-kubeconfig.yaml"
+    dest: "{{ kubeconfig_local_path }}"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+
+- name: Remove temp kubeconfig
+  ansible.builtin.file:
+    path: "/tmp/lw-c1-kubeconfig.yaml"
+    state: absent
+  delegate_to: localhost
+  become: false
+
+- name: Verify kubectl can reach lw-c1
+  ansible.builtin.command: kubectl get nodes --no-headers
+  environment:
+    KUBECONFIG: "{{ kubeconfig_local_path }}"
+  delegate_to: localhost
+  become: false
+  register: _kube_nodes
+  changed_when: false
+  failed_when: "'Ready' not in _kube_nodes.stdout"

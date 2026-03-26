@@ -1,0 +1,4 @@
+---
+k3s_node_ip: "192.168.0.107"
+kubeconfig_remote_path: "/etc/rancher/k3s/k3s.yaml"
+kubeconfig_local_path: "{{ lookup('env', 'HOME') }}/.kube/lw-c1.yaml"
