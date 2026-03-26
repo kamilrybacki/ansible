@@ -1,0 +1,14 @@
+---
+# =============================================================================
+# vCluster Setup — test environment on lw-c1 K3s
+# =============================================================================
+# Usage:
+#   ansible-playbook k8s/vcluster-setup/setup.yml \
+#     -i k8s/vcluster-setup/inventory/localhost.ini
+# =============================================================================
+
+- name: Deploy vCluster test environment
+  hosts: localhost
+  connection: local
+  roles:
+    - vcluster
