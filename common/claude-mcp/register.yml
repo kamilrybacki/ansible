@@ -1,0 +1,148 @@
+---
+# common/claude-mcp/register.yml
+#
+# Registers an MCP server in Claude Code using the `claude mcp add` CLI.
+# Idempotent — removes existing entry first if present, then adds fresh.
+#
+# Required variables:
+#   mcp_name       – MCP server name (e.g. "paperless", "vault", "grafana")
+#   mcp_command    – Command or URL (e.g. "npx", "uvx", "/path/to/binary", "https://...")
+#
+# Optional variables:
+#   mcp_args       – list of arguments (default: [])
+#   mcp_env        – dict of environment variables (default: {})
+#   mcp_headers    – dict of HTTP headers (default: {})
+#   mcp_transport  – transport type: "stdio", "http", "sse" (default: "stdio")
+#   mcp_scope      – config scope: "local", "user", "project" (default: "local")
+#
+# Usage:
+#   - name: Register Paperless MCP
+#     ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/claude-mcp/register.yml"
+#     vars:
+#       mcp_name: "paperless"
+#       mcp_command: "npx"
+#       mcp_args: ["-y", "paperless-mcp", "http://10.0.1.2:8000", "{{ api_token }}"]
+#
+#   - name: Register Grafana MCP
+#     ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/claude-mcp/register.yml"
+#     vars:
+#       mcp_name: "grafana"
+#       mcp_command: "uvx"
+#       mcp_args: ["mcp-grafana"]
+#       mcp_env:
+#         GRAFANA_URL: "http://localhost:3000"
+#         GRAFANA_SERVICE_ACCOUNT_TOKEN: "{{ grafana_token }}"
+#
+#   - name: Register N8N MCP (HTTP transport)
+#     ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/claude-mcp/register.yml"
+#     vars:
+#       mcp_name: "n8n"
+#       mcp_command: "https://n8n.example.com/mcp-server/http"
+#       mcp_transport: "http"
+#       mcp_headers:
+#         Authorization: "Bearer {{ n8n_token }}"
+
+- name: Check if claude CLI is available
+  ansible.builtin.command: claude --version
+  register: _claude_version
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  become: false
+
+- name: Register MCP server via claude CLI
+  when: _claude_version.rc == 0
+  delegate_to: localhost
+  become: false
+  block:
+    - name: Remove existing MCP entry (idempotent)
+      ansible.builtin.command: >-
+        claude mcp remove -s {{ mcp_scope | default('local') }} {{ mcp_name }}
+      changed_when: true
+      failed_when: false
+      no_log: true
+
+    - name: Build claude mcp add command
+      ansible.builtin.set_fact:
+        _mcp_add_cmd: >-
+          claude mcp add
+          -s {{ mcp_scope | default('local') }}
+          {% if mcp_transport | default('stdio') != 'stdio' %}
+          -t {{ mcp_transport }}
+          {% endif %}
+          {% for key, value in (mcp_env | default({})).items() %}
+          -e {{ key }}={{ value }}
+          {% endfor %}
+          {% for key, value in (mcp_headers | default({})).items() %}
+          -H "{{ key }}: {{ value }}"
+          {% endfor %}
+          {{ mcp_name }}
+          {% if mcp_transport | default('stdio') == 'stdio' and (mcp_args | default([])) | length > 0 %}
+          -- {{ mcp_command }} {{ (mcp_args | default([])) | join(' ') }}
+          {% else %}
+          {{ mcp_command }}
+          {% if mcp_transport | default('stdio') != 'stdio' %}
+          {% for arg in (mcp_args | default([])) %}
+          {{ arg }}
+          {% endfor %}
+          {% endif %}
+          {% endif %}
+      no_log: true
+
+    - name: Register MCP server
+      ansible.builtin.command: "{{ _mcp_add_cmd }}"
+      changed_when: true
+      no_log: true
+
+    - name: Report MCP registration
+      ansible.builtin.debug:
+        msg: "Registered MCP server '{{ mcp_name }}' in Claude Code (scope: {{ mcp_scope | default('local') }}, transport: {{ mcp_transport | default('stdio') }})"
+
+- name: Fall back to manual JSON merge if claude CLI unavailable
+  when: _claude_version.rc != 0
+  delegate_to: localhost
+  become: false
+  block:
+    - name: Read Claude Code config
+      ansible.builtin.slurp:
+        src: "{{ ansible_env.HOME }}/.claude.json"
+      register: _claude_config_raw
+
+    - name: Build MCP entry
+      ansible.builtin.set_fact:
+        _mcp_entry: >-
+          {{
+            {'type': mcp_transport | default('stdio')}
+            | combine(
+                {'command': mcp_command, 'args': mcp_args | default([])}
+                if mcp_transport | default('stdio') == 'stdio'
+                else {'url': mcp_command}
+              )
+            | combine(
+                {'env': mcp_env}
+                if (mcp_env | default({})) | length > 0
+                else {}
+              )
+            | combine(
+                {'headers': mcp_headers}
+                if (mcp_headers | default({})) | length > 0
+                else {}
+              )
+          }}
+      no_log: true
+
+    - name: Merge and write Claude Code config
+      ansible.builtin.copy:
+        content: "{{ _claude_config_updated | to_nice_json(indent=2) }}"
+        dest: "{{ ansible_env.HOME }}/.claude.json"
+        mode: "0600"
+        backup: true
+      vars:
+        _claude_config: "{{ _claude_config_raw.content | b64decode | from_json }}"
+        _claude_config_updated: >-
+          {{ _claude_config | combine({'mcpServers': (_claude_config.mcpServers | default({})) | combine({mcp_name: _mcp_entry}) }) }}
+      no_log: true
+
+    - name: Report MCP registration (fallback)
+      ansible.builtin.debug:
+        msg: "Registered MCP server '{{ mcp_name }}' in ~/.claude.json (fallback mode — restart Claude Code to apply)"

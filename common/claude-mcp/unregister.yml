@@ -1,0 +1,37 @@
+---
+# common/claude-mcp/unregister.yml
+#
+# Removes an MCP server from Claude Code.
+#
+# Required variables:
+#   mcp_name  – MCP server name to remove
+#
+# Optional variables:
+#   mcp_scope – config scope: "local", "user", "project" (default: "local")
+#
+# Usage:
+#   - name: Remove Paperless MCP
+#     ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/claude-mcp/unregister.yml"
+#     vars:
+#       mcp_name: "paperless"
+
+- name: Check if claude CLI is available
+  ansible.builtin.command: claude --version
+  register: _claude_version
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  become: false
+
+- name: Remove MCP server via claude CLI
+  ansible.builtin.command: >-
+    claude mcp remove -s {{ mcp_scope | default('local') }} {{ mcp_name }}
+  changed_when: true
+  failed_when: false
+  delegate_to: localhost
+  become: false
+  when: _claude_version.rc == 0
+
+- name: Report MCP removal
+  ansible.builtin.debug:
+    msg: "Removed MCP server '{{ mcp_name }}' from Claude Code"
