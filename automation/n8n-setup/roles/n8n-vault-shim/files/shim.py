@@ -138,19 +138,31 @@ def _n8n_login(email: str, password: str) -> str:
 def _n8n_active_executions(cookie: str) -> int:
     """Return count of currently running workflow executions."""
     req = urllib.request.Request(
-        f"{N8N_URL}/rest/executions?status=running&limit=1",
+        f"{N8N_URL}/rest/executions?status=running&limit=10",
         headers={"Cookie": f"n8n-auth={cookie}"},
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             data = json.load(r)
-        rows = data if isinstance(data, list) else data.get("data", [])
-        return len(rows)
+        # n8n REST API returns {"data": {"results": [...], "count": N, ...}}
+        inner = data.get("data", data) if isinstance(data, dict) else data
+        if isinstance(inner, dict):
+            results = inner.get("results", [])
+            return len(results)
+        if isinstance(inner, list):
+            return len(inner)
+        return 0
     except Exception:
         return 0  # if we can't check, assume safe to proceed
 
 
+# Track consecutive skips so we can force-sync after too many deferrals
+_consecutive_skips = 0
+MAX_CONSECUTIVE_SKIPS = 3  # force sync after this many deferrals
+
+
 def _has_active_executions(secrets: dict) -> bool:
+    global _consecutive_skips
     email = secrets.get("owner_email")
     password = secrets.get("owner_password")
     if not email or not password:
@@ -158,7 +170,19 @@ def _has_active_executions(secrets: dict) -> bool:
     try:
         cookie = _n8n_login(email, password)
         count = _n8n_active_executions(cookie)
-        return count > 0
+        if count > 0:
+            _consecutive_skips += 1
+            if _consecutive_skips > MAX_CONSECUTIVE_SKIPS:
+                print(
+                    f"[sync] Forcing recreation after {_consecutive_skips} consecutive skips "
+                    f"({count} execution(s) still running)",
+                    flush=True,
+                )
+                _consecutive_skips = 0
+                return False  # allow sync to proceed
+            return True
+        _consecutive_skips = 0
+        return False
     except Exception as exc:
         print(f"[sync] Warning: could not check active executions: {exc}", flush=True)
         return False
