@@ -12,3 +12,5 @@ couchdb_bind_address: "0.0.0.0"
 couchdb_max_document_size: 50000000
 couchdb_compaction_db_fragmentation: "70%"
 couchdb_compaction_view_fragmentation: "60%"
+couchdb_admin_user: admin
+couchdb_sync_user: obsidian-sync

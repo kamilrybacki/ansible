@@ -111,6 +111,8 @@
   vars:
     _target_host_ip: "{{ hostvars['localhost']['target_host_ip'] }}"
     _caddy_proxy_host: "{{ docker_gateway_ip | default('172.20.0.1') if _target_host_ip in ['localhost', '127.0.0.1', '::1'] else _target_host_ip }}"
+    couchdb_hostname: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_hostname'] | default('couchdb') }}"
+    couchdb_port: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_port'] | default(5984) }}"
   tasks:
     - name: Integrate when secure homelab is configured
       when: hostvars['localhost']['_homelab_vars_stat'].stat.exists
@@ -125,6 +127,7 @@
           changed_when: _couchdb_cf_dns.rc == 0
           failed_when: false
           become: false
+          when: saved_cf_tunnel_name is defined and saved_cf_tunnel_name | length > 0
 
         - name: Add CouchDB to Caddy config
           ansible.builtin.blockinfile:

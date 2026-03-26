@@ -9,7 +9,7 @@ services:
     ports:
       - "{{ couchdb_bind_address }}:{{ couchdb_port }}:5984"
     volumes:
-      - couchdb-data:/opt/couchdb/data
+      - {{ couchdb_data_dir }}/data:/opt/couchdb/data
       - {{ couchdb_data_dir }}/local.ini:/opt/couchdb/etc/local.d/local.ini:ro
     networks:
       - databases-net
@@ -19,9 +19,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-
-volumes:
-  couchdb-data:
 
 networks:
   databases-net:

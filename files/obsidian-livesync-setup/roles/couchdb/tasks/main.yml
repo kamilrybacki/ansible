@@ -4,13 +4,16 @@
     name: python3-docker
     state: present
 
-- name: Create CouchDB data directory
+- name: Create CouchDB data directories
   ansible.builtin.file:
-    path: "{{ couchdb_data_dir }}"
+    path: "{{ item }}"
     state: directory
     mode: "0700"
     owner: root
     group: root
+  loop:
+    - "{{ couchdb_data_dir }}"
+    - "{{ couchdb_data_dir }}/data"
 
 - name: Ensure local secrets directory exists
   ansible.builtin.file:
@@ -130,6 +133,7 @@
         roles: []
     status_code: [200]
   no_log: true
+  changed_when: false
 
 - name: Display CouchDB access information
   ansible.builtin.debug:
