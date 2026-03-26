@@ -1,0 +1,187 @@
+---
+# =============================================================================
+# Obsidian LiveSync Setup (CouchDB)
+# =============================================================================
+# Deploys CouchDB for Obsidian LiveSync on a remote host via Docker Compose.
+#
+# Usage:
+#   ansible-playbook files/obsidian-livesync-setup/setup.yml \
+#     -i files/obsidian-livesync-setup/inventory/hosts.ini \
+#     --ask-become-pass
+# =============================================================================
+
+- name: Load saved homelab configuration (if available)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Check for homelab setup vars
+      ansible.builtin.stat:
+        path: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
+      register: _homelab_vars_stat
+
+    - name: Load homelab setup vars
+      ansible.builtin.include_vars:
+        file: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
+      when: _homelab_vars_stat.stat.exists
+
+    - name: Check Vault availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
+
+    - name: Load secrets from Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
+      vars:
+        vault_service_name: "obsidian-livesync"
+      when: _vault_available | bool
+
+- name: Gather host details
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_prompt:
+    - name: target_host_ip
+      prompt: |
+
+        ══════════════════════════════════════════════
+          Obsidian LiveSync (CouchDB) Setup Wizard
+        ══════════════════════════════════════════════
+
+        [1/4] IP or hostname of the shared database host
+      default: "10.0.1.2"
+      private: false
+
+    - name: target_ssh_user
+      prompt: "[2/4] SSH user for the database host"
+      private: false
+
+    - name: couchdb_admin_password
+      prompt: "[3/4] CouchDB admin password"
+      default: "{{ hostvars['localhost']['_vault_secrets']['couchdb_admin_password'] | default('') }}"
+      private: true
+      confirm: true
+
+    - name: couchdb_sync_password
+      prompt: "[4/4] CouchDB sync user password"
+      default: "{{ hostvars['localhost']['_vault_secrets']['couchdb_sync_password'] | default('') }}"
+      private: true
+      confirm: true
+
+  tasks:
+    - name: Add target host to dynamic inventory
+      ansible.builtin.add_host:
+        name: "{{ target_host_ip }}"
+        groups: couchdb_hosts
+        ansible_user: "{{ target_ssh_user }}"
+        ansible_python_interpreter: /usr/bin/python3
+        couchdb_admin_user: admin
+        couchdb_admin_password: "{{ couchdb_admin_password }}"
+        couchdb_sync_user: obsidian-sync
+        couchdb_sync_password: "{{ couchdb_sync_password }}"
+        couchdb_bind_address: "{{ '127.0.0.1' if target_host_ip in ['localhost', '127.0.0.1', '::1'] else '0.0.0.0' }}"
+      no_log: true
+
+- name: Store CouchDB secrets to Vault
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Store secrets to Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/store.yml"
+      vars:
+        vault_service_name: "obsidian-livesync"
+        vault_secrets_data:
+          couchdb_admin_user: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_admin_user'] | default('') }}"
+          couchdb_admin_password: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_admin_password'] | default('') }}"
+          couchdb_sync_user: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_sync_user'] | default('') }}"
+          couchdb_sync_password: "{{ hostvars[groups['couchdb_hosts'][0]]['couchdb_sync_password'] | default('') }}"
+      when: _vault_available | default(false) | bool
+
+- name: Install Docker and deploy CouchDB
+  hosts: couchdb_hosts
+  become: true
+  roles:
+    - docker
+    - couchdb
+
+- name: Integrate CouchDB with secure homelab (Caddy + Pi-hole + Homepage)
+  hosts: localhost
+  connection: local
+  become: true
+  gather_facts: true
+  vars:
+    _target_host_ip: "{{ hostvars['localhost']['target_host_ip'] }}"
+    _caddy_proxy_host: "{{ docker_gateway_ip | default('172.20.0.1') if _target_host_ip in ['localhost', '127.0.0.1', '::1'] else _target_host_ip }}"
+  tasks:
+    - name: Integrate when secure homelab is configured
+      when: hostvars['localhost']['_homelab_vars_stat'].stat.exists
+      block:
+        - name: Add Cloudflare Tunnel DNS route for CouchDB
+          ansible.builtin.command: >
+            cloudflared tunnel route dns {{ saved_cf_tunnel_name }}
+            {{ couchdb_hostname }}.{{ saved_domain }}
+          environment:
+            TUNNEL_ORIGIN_CERT: "{{ lookup('env', 'HOME') }}/.cloudflared/cert.pem"
+          register: _couchdb_cf_dns
+          changed_when: _couchdb_cf_dns.rc == 0
+          failed_when: false
+          become: false
+
+        - name: Add CouchDB to Caddy config
+          ansible.builtin.blockinfile:
+            path: /opt/homelab/caddy/Caddyfile
+            marker: "# {mark} OBSIDIAN_LIVESYNC"
+            unsafe_writes: true
+            block: |
+              http://{{ couchdb_hostname }}.{{ saved_domain }} {
+                import rate_limit
+                import proxy_headers
+
+                @fauxton path /_utils/*
+                handle @fauxton {
+                  import authelia
+                  reverse_proxy http://{{ _caddy_proxy_host }}:{{ couchdb_port }}
+                }
+
+                handle {
+                  reverse_proxy http://{{ _caddy_proxy_host }}:{{ couchdb_port }}
+                }
+              }
+          notify: reload caddy
+
+        - name: Add Pi-hole local DNS record for CouchDB
+          ansible.builtin.command: >
+            docker exec pihole sh -c
+            'grep -qF "{{ couchdb_hostname }}.{{ saved_domain }}" /etc/pihole/custom.list ||
+             (echo "{{ ansible_default_ipv4.address }} {{ couchdb_hostname }}.{{ saved_domain }}" >> /etc/pihole/custom.list && echo CHANGED)'
+          register: _pihole_dns
+          changed_when: "'CHANGED' in _pihole_dns.stdout"
+
+        - name: Reload Pi-hole DNS
+          ansible.builtin.command: docker exec pihole pihole restartdns reload
+          changed_when: true
+          when: _pihole_dns.changed
+
+        - name: Add CouchDB to Homepage services
+          ansible.builtin.blockinfile:
+            path: /opt/homelab/homepage/services.yaml
+            marker: "    # {mark} OBSIDIAN_LIVESYNC"
+            insertafter: "- Applications:"
+            unsafe_writes: true
+            block: |2
+                  - Obsidian Sync:
+                      icon: obsidian.png
+                      href: "https://{{ couchdb_hostname }}.{{ saved_domain }}/_utils"
+                      description: "CouchDB for Obsidian LiveSync"
+
+    - name: Add /etc/hosts fallback when secure homelab is not configured
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ _target_host_ip }} {{ couchdb_hostname }}.home"
+        state: present
+      when: not hostvars['localhost']['_homelab_vars_stat'].stat.exists
+
+  handlers:
+    - name: reload caddy
+      ansible.builtin.shell: |
+        docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+      changed_when: true
