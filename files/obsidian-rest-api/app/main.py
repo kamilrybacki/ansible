@@ -3,6 +3,7 @@ Standalone Obsidian Local REST API
 Implements the coddingtonbear/obsidian-local-rest-api protocol against
 a directory of markdown files, without requiring the Obsidian desktop app.
 """
+import asyncio
 import os
 import re
 import shutil
@@ -10,13 +11,29 @@ import urllib.parse
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+import aiohttp
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 app = FastAPI(title="Obsidian Local REST API (Standalone)", version="1.0.0")
 
 VAULT_ROOT = Path(os.environ["VAULT_ROOT"])
 API_KEY = os.environ["API_KEY"]
+QUARTZ_CONTAINER = os.environ.get("QUARTZ_CONTAINER", "")
+
+
+async def _trigger_quartz_rebuild() -> None:
+    """Signal Quartz to rebuild by restarting its container via the Docker socket."""
+    if not QUARTZ_CONTAINER:
+        return
+    try:
+        connector = aiohttp.UnixConnector(path="/var/run/docker.sock")
+        async with aiohttp.ClientSession(connector=connector) as session:
+            await session.post(
+                f"http://localhost/containers/{QUARTZ_CONTAINER}/restart?t=2"
+            )
+    except Exception:
+        pass  # best-effort — never block the API response
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -85,15 +102,16 @@ async def get_vault_path(path: str, _auth=Depends(_verify)):
 # ── Vault file writes ─────────────────────────────────────────────────────────
 
 @app.put("/vault/{path:path}")
-async def put_file(path: str, request: Request, _auth=Depends(_verify)):
+async def put_file(path: str, request: Request, background_tasks: BackgroundTasks, _auth=Depends(_verify)):
     full = _safe_path(path)
     full.parent.mkdir(parents=True, exist_ok=True)
     full.write_bytes(await request.body())
+    background_tasks.add_task(_trigger_quartz_rebuild)
     return Response(status_code=204)
 
 
 @app.post("/vault/{path:path}")
-async def append_file(path: str, request: Request, _auth=Depends(_verify)):
+async def append_file(path: str, request: Request, background_tasks: BackgroundTasks, _auth=Depends(_verify)):
     full = _safe_path(path)
     full.parent.mkdir(parents=True, exist_ok=True)
     body = await request.body()
@@ -101,11 +119,12 @@ async def append_file(path: str, request: Request, _auth=Depends(_verify)):
         if full.exists() and full.stat().st_size > 0:
             f.write(b"\n")
         f.write(body)
+    background_tasks.add_task(_trigger_quartz_rebuild)
     return Response(status_code=204)
 
 
 @app.patch("/vault/{path:path}")
-async def patch_file(path: str, request: Request, _auth=Depends(_verify)):
+async def patch_file(path: str, request: Request, background_tasks: BackgroundTasks, _auth=Depends(_verify)):
     full = _safe_path(path)
     if not full.exists():
         raise HTTPException(status_code=404, detail={"errorCode": 40400, "message": "File not found"})
@@ -126,11 +145,12 @@ async def patch_file(path: str, request: Request, _auth=Depends(_verify)):
         text = _patch_block(text, operation, target, body)
 
     full.write_text(text, encoding="utf-8")
+    background_tasks.add_task(_trigger_quartz_rebuild)
     return Response(status_code=204)
 
 
 @app.delete("/vault/{path:path}")
-async def delete_file(path: str, _auth=Depends(_verify)):
+async def delete_file(path: str, background_tasks: BackgroundTasks, _auth=Depends(_verify)):
     full = _safe_path(path)
     if not full.exists():
         raise HTTPException(status_code=404, detail={"errorCode": 40400, "message": "File not found"})
@@ -138,6 +158,7 @@ async def delete_file(path: str, _auth=Depends(_verify)):
         shutil.rmtree(full)
     else:
         full.unlink()
+    background_tasks.add_task(_trigger_quartz_rebuild)
     return Response(status_code=204)
 
 

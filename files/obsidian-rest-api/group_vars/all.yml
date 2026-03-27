@@ -5,3 +5,6 @@ obsidian_rest_api_vault_dir: /opt/knowledge-vault/content
 obsidian_rest_api_port: 27124
 obsidian_rest_api_image: obsidian-rest-api:latest
 obsidian_rest_api_container_name: obsidian-rest-api
+# Set to the Quartz container name to trigger a rebuild after every vault write.
+# Leave empty to disable (no Docker socket mount needed).
+obsidian_rest_api_quartz_container: "quartz"
