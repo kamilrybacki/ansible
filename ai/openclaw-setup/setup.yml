@@ -1,305 +1,183 @@
 ---
-# OpenClaw Setup Playbook
-# Deploys OpenClaw with 4 cloud providers + optional Ollama local provider.
-# Complexity-tiered routing: 90%+ traffic on free models, ~$0-5/month.
+# OpenClaw K8s Setup Playbook
+# Writes API keys to Vault, creates K8s secret on lw-c1, applies ArgoCD Application,
+# and tears down the legacy Docker Compose deployment on lw-main.
 #
-# Providers: NVIDIA NIM (free), Groq (free), Google Gemini (free),
-#            DeepSeek (paid), Ollama (local, optional)
+# Prerequisites:
+#   - ~/.vault-ansible.yml with vault_addr and vault_token
+#   - kubectl configured on lw-c1 (192.168.0.107) with cluster access
+#   - ArgoCD running in the cluster
 #
 # Usage:
 #   ansible-playbook ai/openclaw-setup/setup.yml
 
-# Play 1: Load saved homelab configuration (if available)
-- name: Load saved homelab configuration (if available)
+# Play 1: Prompt for API keys and write to Vault
+- name: Write OpenClaw API keys to Vault
   hosts: localhost
   connection: local
   gather_facts: false
-  tasks:
-    - name: Check for homelab setup vars
-      ansible.builtin.stat:
-        path: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
-      register: _homelab_vars_stat
-
-    - name: Load homelab setup vars
-      ansible.builtin.include_vars:
-        file: "{{ lookup('env', 'HOME') }}/.homelab-setup-vars.yml"
-      when: _homelab_vars_stat.stat.exists
-
-    - name: Check Vault availability
-      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
-
-    - name: Load secrets from Vault
-      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
-      vars:
-        vault_service_name: "openclaw"
-      when: _vault_available | bool
-
-# Play 2: Gather connection details and build dynamic inventory
-- name: Gather connection details
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  vars:
-    openclaw_hostname: "openclaw"
   vars_prompt:
-    - name: target_host
-      prompt: "Target host IP/hostname (enter 'localhost' for this machine)"
-      default: "localhost"
-      private: false
-
-    - name: target_user
-      prompt: "SSH user for the target (ignored if localhost)"
-      default: ""
-      private: false
-
     - name: nvidia_api_key
-      prompt: |
-
-        === Free providers ===
-        NVIDIA NIM API key (free at build.nvidia.com — 6 models including Kimi K2.5, GLM-5, MiniMax M2.5)
-        Leave empty to skip (or press Enter to use Vault value if available)
-      default: "{{ hostvars['localhost']['_vault_secrets']['nvidia_api_key'] | default('') }}"
+      prompt: "NVIDIA NIM API key (build.nvidia.com, leave empty to skip)"
       private: true
 
     - name: groq_api_key
-      prompt: "Groq API key (free at console.groq.com — fast Llama + Whisper audio, leave empty to skip)"
-      default: "{{ hostvars['localhost']['_vault_secrets']['groq_api_key'] | default('') }}"
+      prompt: "Groq API key (console.groq.com, leave empty to skip)"
       private: true
 
-    - name: gemini_api_key
-      prompt: "Google Gemini API key (free at aistudio.google.dev — 1500 req/day, 1M context, leave empty to skip)"
-      default: "{{ hostvars['localhost']['_vault_secrets']['gemini_api_key'] | default('') }}"
+    - name: google_api_key
+      prompt: "Google Gemini API key (aistudio.google.dev, leave empty to skip)"
       private: true
 
     - name: deepseek_api_key
-      prompt: |
-
-        === Paid provider ===
-        DeepSeek API key (paid at platform.deepseek.com — $0.27-$2.20/1M tokens, leave empty to skip)
-      default: "{{ hostvars['localhost']['_vault_secrets']['deepseek_api_key'] | default('') }}"
+      prompt: "DeepSeek API key (platform.deepseek.com, leave empty to skip)"
       private: true
-
-    - name: enable_ollama
-      prompt: |
-
-        === Local provider ===
-        Deploy Ollama as a local LLM provider? (Zero-cost, fully private, no API key needed)
-          yes – Deploy Ollama sidecar alongside OpenClaw
-          no  – Cloud providers only
-        Enable Ollama (yes/no)
-      default: "no"
-      private: false
-
-    - name: ollama_model
-      prompt: |
-
-        Ollama model to pull (ignored if Ollama is disabled):
-          llama3.1:8b      – 8B params, ~5 GB  (default, good for most tasks)
-          llama3.1:70b     – 70B params, ~40 GB (needs serious hardware)
-          qwen2.5:14b      – 14B params, ~9 GB  (strong coding)
-          deepseek-r1:8b   – 8B params, ~5 GB   (reasoning focused)
-        Enter model tag
-      default: "llama3.1:8b"
-      private: false
-
-    - name: enable_gpu
-      prompt: "Enable NVIDIA GPU passthrough for Ollama? (yes/no, ignored if Ollama disabled)"
-      default: "no"
-      private: false
-
-    - name: telegram_bot_token
-      prompt: |
-
-        === Chat channels ===
-        Telegram bot token (from @BotFather, leave empty to skip)
-      default: "{{ hostvars['localhost']['_vault_secrets']['telegram_bot_token'] | default('') }}"
-      private: true
-
-    - name: telegram_allowed_users
-      prompt: "Telegram user IDs to auto-approve (comma-separated, leave empty to skip)"
-      default: "{{ hostvars['localhost']['_vault_secrets']['telegram_allowed_users'] | default('') }}"
-      private: false
 
   tasks:
-    - name: Validate at least one provider key is configured
+    - name: Check Vault availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
+
+    - name: Validate at least one provider key is provided
       ansible.builtin.assert:
         that:
           - >-
             (nvidia_api_key | default('') | length > 0) or
             (groq_api_key | default('') | length > 0) or
-            (gemini_api_key | default('') | length > 0) or
-            (deepseek_api_key | default('') | length > 0) or
-            (enable_ollama | default('no') | lower in ['yes', 'true', '1'])
+            (google_api_key | default('') | length > 0) or
+            (deepseek_api_key | default('') | length > 0)
         fail_msg: >-
-          At least one provider must be configured.
-          Provide an API key for NVIDIA NIM, Groq, Gemini, or DeepSeek,
-          or enable Ollama for local inference.
+          At least one provider API key must be provided.
 
-    - name: Add target to dynamic inventory (remote)
-      ansible.builtin.add_host:
-        name: "{{ target_host }}"
-        groups: openclaw_targets
-        ansible_connection: ssh
-        ansible_user: "{{ target_user }}"
-        ansible_python_interpreter: /usr/bin/python3
-        openclaw_nvidia_api_key: "{{ nvidia_api_key | default('') }}"
-        openclaw_groq_api_key: "{{ groq_api_key | default('') }}"
-        openclaw_gemini_api_key: "{{ gemini_api_key | default('') }}"
-        openclaw_deepseek_api_key: "{{ deepseek_api_key | default('') }}"
-        openclaw_ollama_enabled: "{{ enable_ollama | default('no') | lower in ['yes', 'true', '1'] }}"
-        openclaw_ollama_model: "{{ ollama_model | default('llama3.1:8b') }}"
-        openclaw_ollama_gpu_enabled: "{{ enable_gpu | default('no') | lower in ['yes', 'true', '1'] }}"
-        openclaw_telegram_bot_token: "{{ telegram_bot_token | default('') }}"
-        openclaw_telegram_allowed_users: "{{ (telegram_allowed_users | default('')).split(',') | map('trim') | select | list }}"
-        openclaw_primary_model: >-
-          {{
-            'nvidia/moonshotai/kimi-k2.5' if nvidia_api_key | default('') | length > 0
-            else ('groq/llama-3.3-70b-versatile' if groq_api_key | default('') | length > 0
-            else ('google/gemini-2.5-flash' if gemini_api_key | default('') | length > 0
-            else ('nvidia/moonshotai/kimi-k2.5' if nvidia_api_key | default('') | length > 0
-            else 'ollama/' + ollama_model | default('llama3.1:8b'))))
-          }}
-        openclaw_public_url: >-
-          {{
-            'https://' + openclaw_hostname + '.' + hostvars['localhost']['saved_domain']
-            if hostvars['localhost']['_homelab_vars_stat'].stat.exists
-            else ''
-          }}
-      when: target_host != 'localhost'
-
-    - name: Add target to dynamic inventory (local)
-      ansible.builtin.add_host:
-        name: localhost
-        groups: openclaw_targets
-        ansible_connection: local
-        ansible_python_interpreter: /usr/bin/python3
-        openclaw_nvidia_api_key: "{{ nvidia_api_key | default('') }}"
-        openclaw_groq_api_key: "{{ groq_api_key | default('') }}"
-        openclaw_gemini_api_key: "{{ gemini_api_key | default('') }}"
-        openclaw_deepseek_api_key: "{{ deepseek_api_key | default('') }}"
-        openclaw_ollama_enabled: "{{ enable_ollama | default('no') | lower in ['yes', 'true', '1'] }}"
-        openclaw_ollama_model: "{{ ollama_model | default('llama3.1:8b') }}"
-        openclaw_ollama_gpu_enabled: "{{ enable_gpu | default('no') | lower in ['yes', 'true', '1'] }}"
-        openclaw_telegram_bot_token: "{{ telegram_bot_token | default('') }}"
-        openclaw_telegram_allowed_users: "{{ (telegram_allowed_users | default('')).split(',') | map('trim') | select | list }}"
-        openclaw_primary_model: >-
-          {{
-            'nvidia/moonshotai/kimi-k2.5' if nvidia_api_key | default('') | length > 0
-            else ('groq/llama-3.3-70b-versatile' if groq_api_key | default('') | length > 0
-            else ('google/gemini-2.5-flash' if gemini_api_key | default('') | length > 0
-            else ('nvidia/moonshotai/kimi-k2.5' if nvidia_api_key | default('') | length > 0
-            else 'ollama/' + ollama_model | default('llama3.1:8b'))))
-          }}
-        openclaw_public_url: >-
-          {{
-            'https://' + openclaw_hostname + '.' + hostvars['localhost']['saved_domain']
-            if hostvars['localhost']['_homelab_vars_stat'].stat.exists
-            else ''
-          }}
-      when: target_host == 'localhost'
-
-# Play 3: Provision OpenClaw
-- name: Provision OpenClaw
-  hosts: openclaw_targets
-  gather_facts: true
-  become: true
-  roles:
-    - prerequisites
-    - openclaw
-
-# Play 4: Store secrets to Vault (if available)
-- name: Store OpenClaw secrets to Vault
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  tasks:
-    - name: Store secrets to Vault
+    - name: Store API keys to Vault
       ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/store.yml"
       vars:
         vault_service_name: "openclaw"
         vault_secrets_data:
-          nvidia_api_key: "{{ hostvars[groups['openclaw_targets'][0]]['openclaw_nvidia_api_key'] | default('') }}"
-          groq_api_key: "{{ hostvars[groups['openclaw_targets'][0]]['openclaw_groq_api_key'] | default('') }}"
-          gemini_api_key: "{{ hostvars[groups['openclaw_targets'][0]]['openclaw_gemini_api_key'] | default('') }}"
-          deepseek_api_key: "{{ hostvars[groups['openclaw_targets'][0]]['openclaw_deepseek_api_key'] | default('') }}"
-          telegram_bot_token: "{{ hostvars[groups['openclaw_targets'][0]]['openclaw_telegram_bot_token'] | default('') }}"
-          telegram_allowed_users: "{{ hostvars[groups['openclaw_targets'][0]]['openclaw_telegram_allowed_users'] | default([]) | join(',') }}"
-      when: _vault_available | default(false) | bool
+          nvidia_api_key: "{{ nvidia_api_key | default('') }}"
+          groq_api_key: "{{ groq_api_key | default('') }}"
+          google_api_key: "{{ google_api_key | default('') }}"
+          deepseek_api_key: "{{ deepseek_api_key | default('') }}"
+      when: _vault_available | bool
 
-# Play 5: Integrate with secure homelab
-- name: Integrate OpenClaw with secure homelab (Caddy + Cloudflare Tunnel + Pi-hole + Homepage)
+    - name: Warn if Vault is unavailable
+      ansible.builtin.debug:
+        msg: "WARNING: Vault not available — API keys will not be persisted. K8s secret will still be created."
+      when: not (_vault_available | bool)
+
+# Play 2: Create K8s secret and apply ArgoCD Application on lw-c1
+- name: Deploy OpenClaw to Kubernetes via ArgoCD
   hosts: localhost
   connection: local
-  become: true
-  gather_facts: true
-  vars:
-    _target_host_ip: "{{ hostvars['localhost']['target_host'] }}"
-    _caddy_proxy_host: "{{ docker_gateway_ip | default('172.20.0.1') if _target_host_ip in ['localhost', '127.0.0.1', '::1'] else _target_host_ip }}"
-    openclaw_hostname: "openclaw"
+  gather_facts: false
   tasks:
-    - name: Integrate when secure homelab is configured
-      when: hostvars['localhost']['_homelab_vars_stat'].stat.exists
-      block:
-        - name: Add Cloudflare Tunnel DNS route for OpenClaw
-          ansible.builtin.command: >
-            cloudflared tunnel route dns {{ saved_cf_tunnel_name }}
-            {{ openclaw_hostname }}.{{ saved_domain }}
-          environment:
-            TUNNEL_ORIGIN_CERT: "{{ lookup('env', 'HOME') }}/.cloudflared/cert.pem"
-          register: _openclaw_cf_dns
-          changed_when: _openclaw_cf_dns.rc == 0
-          failed_when: false
-          become: false
+    - name: Create openclaw namespace (idempotent)
+      ansible.builtin.command: >
+        ssh kamil-rybacki@192.168.0.107
+        "kubectl create namespace openclaw --dry-run=client -o yaml | kubectl apply -f -"
+      register: _ns_result
+      changed_when: "'created' in _ns_result.stdout"
 
-        - name: Add OpenClaw to Caddy config
-          ansible.builtin.blockinfile:
-            path: /opt/homelab/caddy/Caddyfile
-            marker: "# {mark} OPENCLAW"
-            unsafe_writes: true
-            block: |
-              http://{{ openclaw_hostname }}.{{ saved_domain }} {
-                import rate_limit
-                import proxy_headers
-                import authelia
-                reverse_proxy openclaw:{{ openclaw_proxy_port | default(18790) }}
-              }
-          notify: reload caddy
+    - name: Create openclaw-secrets K8s secret (idempotent)
+      ansible.builtin.command: >
+        ssh kamil-rybacki@192.168.0.107
+        "kubectl create secret generic openclaw-secrets
+         --namespace openclaw
+         --from-literal=nvidia_api_key={{ nvidia_api_key | default('') | quote }}
+         --from-literal=groq_api_key={{ groq_api_key | default('') | quote }}
+         --from-literal=google_api_key={{ google_api_key | default('') | quote }}
+         --from-literal=deepseek_api_key={{ deepseek_api_key | default('') | quote }}
+         --dry-run=client -o yaml | kubectl apply -f -"
+      register: _secret_result
+      changed_when: "'configured' in _secret_result.stdout or 'created' in _secret_result.stdout"
+      no_log: true
 
-        - name: Add Pi-hole local DNS record for OpenClaw
-          ansible.builtin.command: >
-            docker exec pihole sh -c
-            'grep -qF "{{ openclaw_hostname }}.{{ saved_domain }}" /etc/pihole/custom.list ||
-             (echo "{{ ansible_default_ipv4.address }} {{ openclaw_hostname }}.{{ saved_domain }}" >> /etc/pihole/custom.list && echo CHANGED)'
-          register: _pihole_dns
-          changed_when: "'CHANGED' in _pihole_dns.stdout"
+    - name: Write ArgoCD Application manifest to temp file
+      ansible.builtin.copy:
+        dest: /tmp/openclaw-argocd-app.yml
+        content: |
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: openclaw
+            namespace: argocd
+          spec:
+            project: default
+            source:
+              repoURL: https://github.com/kamilandrzejrybacki-inc/helm.git
+              targetRevision: main
+              path: charts/openclaw
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: openclaw
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              syncOptions:
+                - CreateNamespace=true
+        mode: "0600"
 
-        - name: Reload Pi-hole DNS
-          ansible.builtin.command: docker exec pihole pihole restartdns reload
-          changed_when: true
-          when: _pihole_dns.changed
-
-        - name: Add OpenClaw to Homepage services
-          ansible.builtin.blockinfile:
-            path: /opt/homelab/homepage/services.yaml
-            marker: "    # {mark} OPENCLAW"
-            insertafter: "- Applications:"
-            unsafe_writes: true
-            block: |2
-                  - OpenClaw:
-                      icon: openclaw.png
-                      href: "https://{{ openclaw_hostname }}.{{ saved_domain }}"
-                      description: "AI agent framework"
-
-    - name: Add /etc/hosts fallback when secure homelab is not configured
-      ansible.builtin.lineinfile:
-        path: /etc/hosts
-        line: "{{ _target_host_ip }} {{ openclaw_hostname }}.home"
-        state: present
-      when: not hostvars['localhost']['_homelab_vars_stat'].stat.exists
-
-  handlers:
-    - name: reload caddy
-      ansible.builtin.shell: |
-        
-        docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+    - name: Copy ArgoCD Application manifest to lw-c1
+      ansible.builtin.command: >
+        scp /tmp/openclaw-argocd-app.yml kamil-rybacki@192.168.0.107:/tmp/openclaw-argocd-app.yml
       changed_when: true
+
+    - name: Apply ArgoCD Application manifest
+      ansible.builtin.command: >
+        ssh kamil-rybacki@192.168.0.107 "kubectl apply -f /tmp/openclaw-argocd-app.yml"
+      register: _argocd_result
+      changed_when: "'configured' in _argocd_result.stdout or 'created' in _argocd_result.stdout"
+
+    - name: Clean up temp manifest on lw-c1
+      ansible.builtin.command: >
+        ssh kamil-rybacki@192.168.0.107 "rm -f /tmp/openclaw-argocd-app.yml"
+      changed_when: false
+
+    - name: Clean up local temp manifest
+      ansible.builtin.file:
+        path: /tmp/openclaw-argocd-app.yml
+        state: absent
+
+    - name: Report ArgoCD Application status
+      ansible.builtin.debug:
+        msg: "ArgoCD Application result: {{ _argocd_result.stdout }}"
+
+# Play 3: Teardown lw-main Docker Compose (idempotent)
+- name: Teardown legacy Docker Compose deployment on lw-main
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Stop Docker Compose stack in /opt/openclaw (if present)
+      ansible.builtin.command: >
+        ssh kamil-rybacki@192.168.0.110
+        "[ -d /opt/openclaw ] && cd /opt/openclaw && docker compose down || true"
+      register: _compose_down
+      changed_when: "'Removed' in _compose_down.stdout or 'Stopping' in _compose_down.stdout"
+      ignore_errors: true
+
+    - name: Remove openclaw-lan-relay container (if present)
+      ansible.builtin.command: >
+        ssh kamil-rybacki@192.168.0.110 "docker rm -f openclaw-lan-relay 2>/dev/null || true"
+      register: _rm_relay
+      changed_when: _rm_relay.stdout | trim | length > 0
+      ignore_errors: true
+
+    - name: Remove UFW rule for openclaw port 18790
+      ansible.builtin.command: >
+        ssh kamil-rybacki@192.168.0.110
+        "sudo ufw delete allow from 192.168.0.0/16 to any port 18790 proto tcp 2>/dev/null || true"
+      register: _ufw_result
+      changed_when: "'Rule deleted' in _ufw_result.stdout"
+      ignore_errors: true
+
+    - name: Remove /opt/openclaw directory
+      ansible.builtin.command: >
+        ssh kamil-rybacki@192.168.0.110 "sudo rm -rf /opt/openclaw"
+      register: _rm_dir
+      changed_when: true
+      ignore_errors: true
+
+    - name: Report teardown completion
+      ansible.builtin.debug:
+        msg: "lw-main Docker Compose teardown complete (errors ignored — may have already been removed)."
