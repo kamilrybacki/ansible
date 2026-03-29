@@ -247,7 +247,6 @@ prometheus.relabel "wireguard_labels" {
 {% if probe_outline_url | default('') | length > 0 %}{% set _ = _probe_list.append(('outline', probe_outline_url)) %}{% endif %}
 {% if probe_vaultwarden_url | default('') | length > 0 %}{% set _ = _probe_list.append(('vaultwarden', probe_vaultwarden_url)) %}{% endif %}
 {% if probe_seafile_url | default('') | length > 0 %}{% set _ = _probe_list.append(('seafile', probe_seafile_url)) %}{% endif %}
-{% if probe_dify_url | default('') | length > 0 %}{% set _ = _probe_list.append(('dify', probe_dify_url)) %}{% endif %}
 {% if _probe_list | length > 0 %}
 prometheus.exporter.blackbox "apps" {
   config = "modules:\n  http_2xx:\n    prober: http\n    timeout: 10s\n    http:\n      preferred_ip_protocol: ip4"

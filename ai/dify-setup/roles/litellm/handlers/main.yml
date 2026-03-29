@@ -1,6 +1,0 @@
----
-- name: Restart litellm
-  community.docker.docker_compose_v2:
-    project_src: "{{ litellm_install_dir }}"
-    state: restarted
-  when: litellm_enabled

@@ -62,4 +62,3 @@ probe_netbox_url: "http://netbox.kamilandrzejrybacki.dpdns.org"
 probe_outline_url: ""
 probe_vaultwarden_url: ""   # removed from homelab
 probe_seafile_url: ""
-probe_dify_url: ""

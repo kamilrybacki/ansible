@@ -254,7 +254,6 @@
       homelab/{{ item }} _initialized=true
   loop:
     - infrastructure
-    - dify
     - openclaw
     - n8n
     - paperless
@@ -289,7 +288,6 @@
 
       Playbook secret paths:
         homelab/infrastructure  – domain, Cloudflare, WireGuard, Authelia, Pi-hole
-        homelab/dify            – LiteLLM key, Groq, Gemini, OpenRouter, Cerebras
         homelab/openclaw        – NVIDIA, Groq, Gemini, DeepSeek API keys
         homelab/n8n             – owner credentials
         homelab/paperless       – admin credentials

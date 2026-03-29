@@ -2,6 +2,6 @@
 galaxy_info:
   role_name: prerequisites
   author: kamilrybacki
-  description: Install Docker engine and Compose plugin for Dify
+  description: Install Docker engine and Compose plugin
   min_ansible_version: "2.10"
 dependencies: []

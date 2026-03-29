@@ -94,7 +94,7 @@ Deploys [HashiCorp Vault](https://www.vaultproject.io/) as the centralized secre
 - **Storage:** file (default) or Raft (HA-capable)
 - **Auto-unseal:** optional — stores unseal keys on disk for automatic restart recovery
 - **Integration:** saves `~/.vault-ansible.yml` with connection details; all other playbooks auto-detect and use Vault when available
-- **Secret paths:** `secret/homelab/<service>` — one path per playbook (infrastructure, dify, openclaw, n8n, paperless, seafile, netbox, librenms, swe-af)
+- **Secret paths:** `secret/homelab/<service>` — one path per playbook (infrastructure, openclaw, n8n, paperless, seafile, netbox, librenms, swe-af)
 - **Policy:** creates an `ansible-automation` policy with read/write access to all homelab paths
 
 ### security/lab-network
@@ -113,7 +113,6 @@ Playbooks for deploying AI and LLM infrastructure.
 | Playbook | Description | Roles |
 |----------|-------------|-------|
 | [`ai/openclaw-setup`](./ai/openclaw-setup/) | OpenClaw — multi-provider AI agent framework with complexity-tiered routing + optional Ollama | 2 |
-| [`ai/dify-setup`](./ai/dify-setup/) | Dify — LLM app platform with vector store and LiteLLM proxy | 3 |
 | [`ai/swe-af-setup`](./ai/swe-af-setup/) | SWE-AF — autonomous software engineering agent runtime | 2 |
 
 ### ai/openclaw-setup
@@ -123,14 +122,6 @@ Deploys [OpenClaw](https://openclaw.com/) with 4 cloud providers + optional Olla
 - **Providers:** NVIDIA NIM (free, 6 models), Groq (free, fast), Google Gemini (free, 1M context), DeepSeek (paid), Ollama (local, optional)
 - **Routing:** heartbeat → free models, simple tasks → free primary, complex → DeepSeek (if configured)
 - **Vault path:** `secret/homelab/openclaw` (nvidia_api_key, groq_api_key, gemini_api_key, deepseek_api_key)
-
-### ai/dify-setup
-
-Deploys [Dify](https://dify.ai/), an open-source LLM application development platform.
-
-- **Vector store:** Weaviate (default), with Qdrant, pgvector, or Chroma as alternatives
-- **LiteLLM proxy (optional):** unifies access to Groq, Google Gemini, OpenRouter, Cerebras
-- **Vault path:** `secret/homelab/dify` (litellm_master_key, groq_api_key, gemini_api_key, openrouter_api_key, cerebras_api_key, admin_password)
 
 ### ai/swe-af-setup
 

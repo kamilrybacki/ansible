@@ -17,5 +17,3 @@ shared_postgres_tenants:
     conn_limit: 30
   - name: paperless
     conn_limit: 20
-  - name: dify
-    conn_limit: 50

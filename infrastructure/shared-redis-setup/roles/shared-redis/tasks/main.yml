@@ -77,6 +77,5 @@
         1 = Netbox (task queue)
         2 = Netbox (cache)
         3 = Paperless
-        4 = Dify
 
       Credentials stored in ~/.homelab-secrets/shared-redis/

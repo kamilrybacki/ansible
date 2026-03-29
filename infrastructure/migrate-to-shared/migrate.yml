@@ -200,56 +200,6 @@
           changed_when: true
           no_log: true
 
-    # ── Dify PostgreSQL ──
-    - name: Migrate Dify PostgreSQL data
-      tags: [dify]
-      block:
-        - name: Create Dify migration directory
-          ansible.builtin.file:
-            path: /opt/dify/migration
-            state: directory
-            mode: "0700"
-
-        - name: Load Dify DB password
-          ansible.builtin.set_fact:
-            _dify_local_db_pw: "{{ lookup('file', lookup('env', 'HOME') + '/.homelab-secrets/dify/db_password') | default('difyai123456') }}"
-          no_log: true
-          delegate_to: localhost
-          become: false
-
-        - name: Find Dify postgres container name
-          ansible.builtin.shell: >
-            docker ps --filter "name=postgres" --filter "label=com.docker.compose.project.working_dir=/opt/dify/docker"
-            --format "{{ '{{' }}.Names{{ '}}' }}" | head -1
-          register: _dify_pg_container
-          changed_when: false
-
-        - name: Dump Dify database
-          ansible.builtin.shell: >
-            docker exec {{ _dify_pg_container.stdout | trim }}
-            pg_dump -U postgres dify
-            > /opt/dify/migration/dify_dump.sql
-          changed_when: true
-
-        - name: Restore Dify into shared PostgreSQL
-          ansible.builtin.shell: >
-            docker exec -i shared-postgres
-            psql -U postgres -d dify
-            < /opt/dify/migration/dify_dump.sql
-          changed_when: true
-
-        - name: Reassign Dify ownership
-          ansible.builtin.shell: |
-            docker exec -i shared-postgres psql -U postgres -d dify <<'EOSQL'
-            DO $$ DECLARE r RECORD; BEGIN
-              FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public'
-              LOOP EXECUTE 'ALTER TABLE public.' || quote_ident(r.tablename) || ' OWNER TO dify'; END LOOP;
-              FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public'
-              LOOP EXECUTE 'ALTER SEQUENCE public.' || quote_ident(r.sequence_name) || ' OWNER TO dify'; END LOOP;
-            END $$;
-            EOSQL
-          changed_when: true
-
     - name: Migration summary
       ansible.builtin.debug:
         msg: |

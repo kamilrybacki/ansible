@@ -107,7 +107,7 @@ pip install -r requirements-test.txt
 ansible-galaxy collection install -r requirements.yml
 
 # Run any playbook
-ansible-playbook ai/dify-setup/setup.yml
+ansible-playbook ai/openclaw-setup/setup.yml
 
 # Optional: Set up Vault first for centralized secrets
 ansible-playbook security/vault-setup/setup.yml</code></pre>
@@ -116,50 +116,6 @@ ansible-playbook security/vault-setup/setup.yml</code></pre>
 <!-- AI -->
 <section id="ai" class="category">
   <h2 class="category-title"><span class="cat-icon">&#129302;</span> AI</h2>
-
-  <div class="service" onclick="this.classList.toggle('open')">
-    <div class="service-header">
-      <div><span class="service-name">Dify</span><span class="service-desc">LLM application platform with multi-provider routing</span></div>
-      <span class="chevron">&#9654;</span>
-    </div>
-    <div class="service-body">
-      <div class="info-grid">
-        <div class="info-card">
-          <h4>Docker Images</h4>
-          <ul>
-            <li><span class="badge badge-image">langgenius/dify:v1.13.2</span></li>
-            <li><span class="badge badge-image">ghcr.io/berriai/litellm:main-stable</span></li>
-            <li>PostgreSQL, Redis, Vector Store (configurable)</li>
-          </ul>
-        </div>
-        <div class="info-card">
-          <h4>Ports</h4>
-          <ul>
-            <li><span class="badge badge-port">80</span> HTTP</li>
-            <li><span class="badge badge-port">443</span> HTTPS</li>
-            <li><span class="badge badge-port">4000</span> LiteLLM (loopback)</li>
-          </ul>
-        </div>
-        <div class="info-card">
-          <h4>Vault Secrets</h4>
-          <ul>
-            <li><span class="badge badge-vault">secret/homelab/dify</span></li>
-            <li>litellm_key, groq_api_key, gemini_api_key</li>
-            <li>openrouter_api_key, cerebras_api_key</li>
-            <li>dify_init_password</li>
-          </ul>
-        </div>
-        <div class="info-card">
-          <h4>Configuration</h4>
-          <ul>
-            <li>Vector store: weaviate (default), qdrant, pgvector, chroma</li>
-            <li>LiteLLM routing: usage-based-routing-v2</li>
-            <li>Rate limits: Groq 25, Gemini 8, OpenRouter 18, Cerebras 25 RPM</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <div class="service" onclick="this.classList.toggle('open')">
     <div class="service-header">
@@ -727,7 +683,7 @@ ansible-playbook security/vault-setup/setup.yml</code></pre>
       <tr><td style="padding:0.4rem 0.8rem;">Paperless-ngx</td><td style="padding:0.4rem 0.8rem;">Header auth</td><td style="padding:0.4rem 0.8rem;"><code>PAPERLESS_ENABLE_HTTP_REMOTE_USER</code></td></tr>
       <tr><td style="padding:0.4rem 0.8rem;">NetBox</td><td style="padding:0.4rem 0.8rem;">Header auth</td><td style="padding:0.4rem 0.8rem;"><code>REMOTE_AUTH_ENABLED</code></td></tr>
       <tr><td style="padding:0.4rem 0.8rem;">LibreNMS</td><td style="padding:0.4rem 0.8rem;">Header auth</td><td style="padding:0.4rem 0.8rem;"><code>AUTH_MECHANISM=header</code></td></tr>
-      <tr><td style="padding:0.4rem 0.8rem;">Uptime Kuma, n8n, Dify, Stirling-PDF</td><td style="padding:0.4rem 0.8rem;">Authelia portal</td><td style="padding:0.4rem 0.8rem;">One login to Authelia, no native SSO</td></tr>
+      <tr><td style="padding:0.4rem 0.8rem;">Uptime Kuma, n8n, Stirling-PDF</td><td style="padding:0.4rem 0.8rem;">Authelia portal</td><td style="padding:0.4rem 0.8rem;">One login to Authelia, no native SSO</td></tr>
     </tbody>
   </table>
 
@@ -748,7 +704,6 @@ ansible-playbook security/vault-setup/setup.yml</code></pre>
   <p>All playbooks optionally integrate with HashiCorp Vault for centralized secret management. When Vault is available (<code>~/.vault-ansible.yml</code> exists), secrets are automatically loaded before prompts and stored after setup.</p>
   <p style="margin-bottom: 1rem;">Vault paths (KV v2 at <code>secret/homelab/&lt;service&gt;</code>):</p>
   <ul class="vault-path-list">
-    <li><code>secret/homelab/dify</code> &mdash; Dify</li>
     <li><code>secret/homelab/openclaw</code> &mdash; OpenClaw</li>
     <li><code>secret/homelab/swe-af</code> &mdash; SWE-AF</li>
     <li><code>secret/homelab/n8n</code> &mdash; n8n</li>
