@@ -50,6 +50,17 @@
         vault_service_name: "n8n"
       when: _vault_available | bool
 
+    - name: Load n8n-postgres secrets from Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
+      vars:
+        vault_service_name: "n8n-postgres"
+      when: _vault_available | bool
+
+    - name: Store n8n-postgres secrets as facts
+      ansible.builtin.set_fact:
+        _n8n_postgres_secrets: "{{ _vault_secrets }}"
+      when: _vault_available | bool
+
 - name: Gather n8n host details
   hosts: localhost
   connection: local
@@ -106,6 +117,9 @@
                  | regex_replace('://localhost:', '://' + hostvars['localhost']['ansible_default_ipv4']['address'] + ':')
           }}
         n8n_vault_reader_token: "{{ hostvars['localhost']['_n8n_vault_reader_token'] | default('') }}"
+        n8n_db_password: "{{ hostvars['localhost']['_n8n_postgres_secrets']['db_password'] | default('') }}"
+        n8n_encryption_key: "{{ hostvars['localhost']['_n8n_postgres_secrets']['encryption_key'] | default('') }}"
+        n8n_queue_redis_password: "{{ hostvars['localhost']['_n8n_postgres_secrets']['redis_password'] | default('') }}"
         n8n_public_url: >-
           {{
             'https://' + n8n_hostname + '.' + hostvars['localhost']['saved_domain']

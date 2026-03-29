@@ -27,7 +27,7 @@
     volumes: "{{ [n8n_volume_name + ':/home/node/.n8n'] + n8n_extra_volumes }}"
     networks:
       - name: "{{ n8n_network_name }}"
-    env: "{{ _n8n_env | combine(_n8n_public_url_env) | combine(_n8n_queue_env) }}"
+    env: "{{ _n8n_env | combine(_n8n_public_url_env) | combine(_n8n_queue_env) | combine(_n8n_db_env) }}"
     comparisons:
       env: ignore   # vault-n8n-sync daemon owns N8N_VAR_* — Ansible must not fight it
   vars:
@@ -50,9 +50,23 @@
           'EXECUTIONS_MODE': 'queue',
           'QUEUE_BULL_REDIS_HOST': n8n_queue_redis_host,
           'QUEUE_BULL_REDIS_PORT': n8n_queue_redis_port,
-          'QUEUE_BULL_REDIS_DB': n8n_queue_redis_db
+          'QUEUE_BULL_REDIS_DB': n8n_queue_redis_db,
+          'QUEUE_BULL_REDIS_PASSWORD': n8n_queue_redis_password
         }
         if n8n_queue_mode | default(false) | bool else {}
+      }}
+    _n8n_db_env: >-
+      {{
+        {
+          'DB_TYPE': n8n_db_type,
+          'DB_POSTGRESDB_HOST': n8n_db_host,
+          'DB_POSTGRESDB_PORT': n8n_db_port,
+          'DB_POSTGRESDB_DATABASE': n8n_db_name,
+          'DB_POSTGRESDB_USER': n8n_db_user,
+          'DB_POSTGRESDB_PASSWORD': n8n_db_password,
+          'N8N_ENCRYPTION_KEY': n8n_encryption_key
+        }
+        if n8n_db_type | default('') == 'postgresdb' else {}
       }}
 
 - name: Wait for n8n to become reachable
