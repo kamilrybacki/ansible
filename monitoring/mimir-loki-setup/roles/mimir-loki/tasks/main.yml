@@ -74,7 +74,7 @@
 
 - name: Wait for Mimir to become reachable
   ansible.builtin.uri:
-    url: "http://localhost:{{ mimir_port }}/ready"
+    url: "http://{{ nas_bind_ip }}:{{ mimir_port }}/ready"
     status_code: [200]
   register: mimir_health
   until: mimir_health is not failed
@@ -83,7 +83,7 @@
 
 - name: Wait for Loki to become reachable
   ansible.builtin.uri:
-    url: "http://localhost:{{ loki_port }}/ready"
+    url: "http://{{ nas_bind_ip }}:{{ loki_port }}/ready"
     status_code: [200]
   register: loki_health
   until: loki_health is not failed

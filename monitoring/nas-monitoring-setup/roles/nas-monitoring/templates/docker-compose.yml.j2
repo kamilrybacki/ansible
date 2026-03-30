@@ -39,10 +39,13 @@ services:
     image: {{ mysqld_exporter_image }}
     container_name: mysqld-exporter
     restart: {{ restart_policy }}
+    command:
+      - "--mysqld.address={{ mariadb_host }}:3306"
+      - "--mysqld.username=exporter"
     ports:
       - "127.0.0.1:{{ mysqld_exporter_port }}:9104"
     environment:
-      DATA_SOURCE_NAME: "{{ mariadb_dsn }}"
+      MYSQLD_EXPORTER_PASSWORD: "{{ mariadb_password }}"
 
   redis-exporter:
     image: {{ redis_exporter_image }}

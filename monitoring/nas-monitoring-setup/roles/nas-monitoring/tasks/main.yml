@@ -44,6 +44,7 @@
 - name: Run SnapRAID collector once now
   ansible.builtin.command: /usr/local/bin/snapraid-collector.sh {{ textfile_dir }}
   changed_when: true
+  ignore_errors: true  # SnapRAID may not be installed; collector fails gracefully
 
 - name: Deploy NAS monitoring stack
   community.docker.docker_compose_v2:

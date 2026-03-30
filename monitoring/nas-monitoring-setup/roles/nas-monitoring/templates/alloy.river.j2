@@ -2,7 +2,9 @@
 prometheus.exporter.unix "host" {
   procfs_path          = "/host/proc"
   sysfs_path           = "/host/sys"
-  textfile_directory    = "/textfile"
+  textfile {
+    directory = "/textfile"
+  }
 }
 
 prometheus.relabel "host_labels" {
