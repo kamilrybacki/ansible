@@ -45,7 +45,7 @@
   ansible.builtin.apt:
     name: python3-docker
     state: present
-  when: docker_exporter_enabled | default(true)
+  when: docker_exporter_enabled | default(true) | bool
 
 - name: Deploy docker-exporter container
   community.docker.docker_container:
@@ -58,7 +58,7 @@
     ports:
       - "127.0.0.1:{{ docker_exporter_port }}:8080"
     state: started
-  when: docker_exporter_enabled | default(true)
+  when: docker_exporter_enabled | default(true) | bool
 
 - name: Enable and start Alloy service
   ansible.builtin.systemd:
