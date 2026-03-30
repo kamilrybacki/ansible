@@ -1,0 +1,34 @@
+---
+data_dir: /opt/nas-monitoring
+
+alloy_image: "grafana/alloy:v1.5.1"
+smartctl_exporter_image: "prometheuscommunity/smartctl-exporter:v0.12.0"
+postgres_exporter_image: "prometheuscommunity/postgres-exporter:v0.16.0"
+mysqld_exporter_image: "prom/mysqld-exporter:v0.16.0"
+redis_exporter_image: "oliver006/redis_exporter:v1.66.0"
+docker_exporter_image: "ghcr.io/davidborzek/docker-exporter:v0.3.0"
+
+restart_policy: unless-stopped
+
+# Exporter ports (localhost only)
+smartctl_exporter_port: 9633
+postgres_exporter_port: 9187
+mysqld_exporter_port: 9104
+redis_exporter_port: 9121
+docker_exporter_port: 9338
+
+# Remote write targets (Mimir/Loki on same host)
+mimir_host: "localhost"
+mimir_port: 9009
+loki_host: "localhost"
+loki_port: 3100
+
+# Database connections (from Vault or vars_prompt)
+postgres_dsn: ""       # Set at deploy time
+mariadb_dsn: ""        # Set at deploy time
+redis_addr: "10.0.1.2:6379"
+redis_password: ""     # Set at deploy time
+
+# Textfile collector
+textfile_dir: /opt/nas-monitoring/textfile
+alloy_scrape_interval: "60s"

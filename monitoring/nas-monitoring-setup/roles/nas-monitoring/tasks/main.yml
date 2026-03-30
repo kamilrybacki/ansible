@@ -1,0 +1,77 @@
+---
+- name: Install Python Docker SDK
+  ansible.builtin.apt:
+    name: python3-docker
+    state: present
+
+- name: Create monitoring directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ data_dir }}"
+    - "{{ data_dir }}/alloy"
+    - "{{ textfile_dir }}"
+
+- name: Template docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ data_dir }}/docker-compose.yml"
+    mode: "0640"
+  notify: Restart nas-monitoring stack
+
+- name: Template Alloy configuration
+  ansible.builtin.template:
+    src: alloy.river.j2
+    dest: "{{ data_dir }}/alloy/config.alloy"
+    mode: "0644"
+  notify: Restart nas-monitoring stack
+
+- name: Install SnapRAID collector script
+  ansible.builtin.copy:
+    src: snapraid-collector.sh
+    dest: /usr/local/bin/snapraid-collector.sh
+    mode: "0755"
+
+- name: Schedule SnapRAID collector cron (every 15 minutes)
+  ansible.builtin.cron:
+    name: "SnapRAID Prometheus collector"
+    minute: "*/15"
+    job: "/usr/local/bin/snapraid-collector.sh {{ textfile_dir }}"
+    user: root
+
+- name: Run SnapRAID collector once now
+  ansible.builtin.command: /usr/local/bin/snapraid-collector.sh {{ textfile_dir }}
+  changed_when: true
+
+- name: Deploy NAS monitoring stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ data_dir }}"
+    state: present
+
+- name: Wait for exporters to become reachable
+  ansible.builtin.uri:
+    url: "http://localhost:{{ item.port }}/metrics"
+    status_code: [200]
+  loop:
+    - { name: smartctl, port: "{{ smartctl_exporter_port }}" }
+    - { name: postgres, port: "{{ postgres_exporter_port }}" }
+    - { name: mysqld, port: "{{ mysqld_exporter_port }}" }
+    - { name: redis, port: "{{ redis_exporter_port }}" }
+  register: exporter_health
+  until: exporter_health is not failed
+  retries: 10
+  delay: 5
+
+- name: Display NAS monitoring information
+  ansible.builtin.debug:
+    msg: |
+      NAS monitoring stack is running:
+        Alloy          → scraping all exporters, pushing to localhost Mimir/Loki
+        smartctl       → localhost:{{ smartctl_exporter_port }}
+        postgres       → localhost:{{ postgres_exporter_port }}
+        mysqld         → localhost:{{ mysqld_exporter_port }}
+        redis          → localhost:{{ redis_exporter_port }}
+        docker         → localhost:{{ docker_exporter_port }}
+        snapraid       → textfile collector at {{ textfile_dir }}

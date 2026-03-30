@@ -1,0 +1,65 @@
+services:
+  alloy:
+    image: {{ alloy_image }}
+    container_name: nas-alloy
+    restart: {{ restart_policy }}
+    volumes:
+      - {{ data_dir }}/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - {{ textfile_dir }}:/textfile:ro
+    command: run /etc/alloy/config.alloy
+    pid: host
+    privileged: true
+    network_mode: host
+
+  smartctl-exporter:
+    image: {{ smartctl_exporter_image }}
+    container_name: smartctl-exporter
+    restart: {{ restart_policy }}
+    privileged: true
+    ports:
+      - "127.0.0.1:{{ smartctl_exporter_port }}:9633"
+    volumes:
+      - /dev:/dev:ro
+
+  postgres-exporter:
+    image: {{ postgres_exporter_image }}
+    container_name: postgres-exporter
+    restart: {{ restart_policy }}
+    ports:
+      - "127.0.0.1:{{ postgres_exporter_port }}:9187"
+    environment:
+      DATA_SOURCE_NAME: "{{ postgres_dsn }}"
+
+  mysqld-exporter:
+    image: {{ mysqld_exporter_image }}
+    container_name: mysqld-exporter
+    restart: {{ restart_policy }}
+    ports:
+      - "127.0.0.1:{{ mysqld_exporter_port }}:9104"
+    environment:
+      DATA_SOURCE_NAME: "{{ mariadb_dsn }}"
+
+  redis-exporter:
+    image: {{ redis_exporter_image }}
+    container_name: redis-exporter
+    restart: {{ restart_policy }}
+    ports:
+      - "127.0.0.1:{{ redis_exporter_port }}:9121"
+    environment:
+      REDIS_ADDR: "{{ redis_addr }}"
+      REDIS_PASSWORD: "{{ redis_password }}"
+
+  docker-exporter:
+    image: {{ docker_exporter_image }}
+    container_name: docker-exporter
+    restart: {{ restart_policy }}
+    user: "0:0"
+    ports:
+      - "127.0.0.1:{{ docker_exporter_port }}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro

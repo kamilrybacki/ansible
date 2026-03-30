@@ -1,0 +1,61 @@
+---
+# =============================================================================
+# NAS Monitoring Setup
+# =============================================================================
+# Deploys Alloy agent, smartctl_exporter, postgres_exporter,
+# mysqld_exporter, redis_exporter, docker-exporter, and SnapRAID
+# textfile collector on lw-nas.
+#
+# Usage:
+#   ansible-playbook monitoring/nas-monitoring-setup/setup.yml \
+#     -i monitoring/nas-monitoring-setup/inventory/hosts.ini \
+#     --ask-become-pass
+# =============================================================================
+
+- name: Load secrets from Vault
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Check Vault availability
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/check.yml"
+
+    - name: Load NAS DB secrets from Vault
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../common/vault-integration/load.yml"
+      vars:
+        vault_service_name: "shared-postgres"
+      when: _vault_available | bool
+
+- name: Gather target details
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_prompt:
+    - name: postgres_password
+      prompt: "[1/2] PostgreSQL password for exporter (or leave blank if loaded from Vault)"
+      private: true
+      default: ""
+
+    - name: redis_password
+      prompt: "[2/2] Redis password (or leave blank if loaded from Vault)"
+      private: true
+      default: ""
+
+  tasks:
+    - name: Add NAS to dynamic inventory
+      ansible.builtin.add_host:
+        name: "10.0.1.2"
+        groups: nas_hosts
+        ansible_user: "kamil"
+        ansible_python_interpreter: /usr/bin/python3
+        postgres_dsn: >-
+          postgresql://postgres_exporter:{{ postgres_password or hostvars['localhost']['_vault_secrets']['exporter_password'] | default('') }}@10.0.1.2:5432/postgres?sslmode=disable
+        mariadb_dsn: >-
+          exporter:{{ postgres_password or hostvars['localhost']['_vault_secrets']['mariadb_exporter_password'] | default('') }}@tcp(10.0.1.2:3306)/
+        redis_password: "{{ redis_password or hostvars['localhost']['_vault_secrets']['redis_password'] | default('') }}"
+
+- name: Deploy NAS monitoring
+  hosts: nas_hosts
+  become: true
+  roles:
+    - nas-monitoring

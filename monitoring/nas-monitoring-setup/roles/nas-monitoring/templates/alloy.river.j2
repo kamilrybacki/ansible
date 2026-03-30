@@ -1,0 +1,165 @@
+// ── Host metrics (node_exporter-compatible) ──────────────────────────────────
+prometheus.exporter.unix "host" {
+  procfs_path          = "/host/proc"
+  sysfs_path           = "/host/sys"
+  textfile_directory    = "/textfile"
+}
+
+prometheus.relabel "host_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+
+  rule {
+    target_label = "job"
+    replacement  = "node"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname | default('lw-nas') }}"
+  }
+}
+
+prometheus.scrape "host_metrics" {
+  targets         = prometheus.exporter.unix.host.targets
+  forward_to      = [prometheus.relabel.host_labels.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+
+// ── SMART disk health ────────────────────────────────────────────────────────
+prometheus.scrape "smartctl" {
+  targets         = [{"__address__" = "localhost:{{ smartctl_exporter_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.smartctl_labels.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+
+prometheus.relabel "smartctl_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule {
+    target_label = "job"
+    replacement  = "smartctl"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname | default('lw-nas') }}"
+  }
+}
+
+// ── PostgreSQL ───────────────────────────────────────────────────────────────
+prometheus.scrape "postgres" {
+  targets         = [{"__address__" = "localhost:{{ postgres_exporter_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.postgres_labels.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+
+prometheus.relabel "postgres_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule {
+    target_label = "job"
+    replacement  = "postgres"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname | default('lw-nas') }}"
+  }
+}
+
+// ── MariaDB ──────────────────────────────────────────────────────────────────
+prometheus.scrape "mariadb" {
+  targets         = [{"__address__" = "localhost:{{ mysqld_exporter_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.mariadb_labels.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+
+prometheus.relabel "mariadb_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule {
+    target_label = "job"
+    replacement  = "mariadb"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname | default('lw-nas') }}"
+  }
+}
+
+// ── Redis ────────────────────────────────────────────────────────────────────
+prometheus.scrape "redis" {
+  targets         = [{"__address__" = "localhost:{{ redis_exporter_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.redis_labels.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+
+prometheus.relabel "redis_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule {
+    target_label = "job"
+    replacement  = "redis"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname | default('lw-nas') }}"
+  }
+}
+
+// ── Docker container metrics ─────────────────────────────────────────────────
+prometheus.scrape "docker_exporter" {
+  targets         = [{"__address__" = "localhost:{{ docker_exporter_port }}"}]
+  metrics_path    = "/metrics"
+  forward_to      = [prometheus.relabel.docker_exporter_labels.receiver]
+  scrape_interval = "{{ alloy_scrape_interval }}"
+}
+
+prometheus.relabel "docker_exporter_labels" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  rule {
+    target_label = "job"
+    replacement  = "docker-exporter"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "{{ ansible_hostname | default('lw-nas') }}"
+  }
+}
+
+// ── Docker container logs ────────────────────────────────────────────────────
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.containers.targets
+  forward_to = [loki.write.loki.receiver]
+
+  labels = {
+    "job"      = "docker",
+    "instance" = "{{ ansible_hostname | default('lw-nas') }}",
+  }
+}
+
+// ── Systemd journal logs ─────────────────────────────────────────────────────
+loki.source.journal "system" {
+  forward_to = [loki.write.loki.receiver]
+  max_age    = "12h"
+
+  labels = {
+    "job"      = "systemd-journal",
+    "instance" = "{{ ansible_hostname | default('lw-nas') }}",
+  }
+}
+
+// ── Remote write endpoints ───────────────────────────────────────────────────
+prometheus.remote_write "mimir" {
+  endpoint {
+    url = "http://{{ mimir_host }}:{{ mimir_port }}/api/v1/push"
+  }
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://{{ loki_host }}:{{ loki_port }}/loki/api/v1/push"
+  }
+}
