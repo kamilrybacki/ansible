@@ -92,3 +92,21 @@ argocd_applications:
     chart_path: charts/vcluster
     namespace: test
     values: {}
+
+  - name: k8s-monitoring
+    chart_path: charts/k8s-monitoring
+    namespace: monitoring
+    values: {}
+    helm_parameters:
+      - { name: "cluster.name", value: "lw-c1" }
+      - { name: "externalServices.prometheus.host", value: "http://10.0.1.2:9009" }
+      - { name: "externalServices.prometheus.writeEndpoint", value: "/api/v1/push" }
+      - { name: "externalServices.loki.host", value: "http://10.0.1.2:3100" }
+      - { name: "externalServices.loki.writeEndpoint", value: "/loki/api/v1/push" }
+      - { name: "metrics.enabled", value: "true" }
+      - { name: "metrics.node-exporter.enabled", value: "true" }
+      - { name: "metrics.kube-state-metrics.enabled", value: "true" }
+      - { name: "metrics.kubelet.enabled", value: "true" }
+      - { name: "metrics.apiserver.enabled", value: "true" }
+      - { name: "logs.enabled", value: "true" }
+      - { name: "logs.pod_logs.enabled", value: "true" }
