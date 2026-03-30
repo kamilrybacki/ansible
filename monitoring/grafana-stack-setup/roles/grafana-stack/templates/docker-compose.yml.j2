@@ -1,28 +1,4 @@
 services:
-  loki:
-    image: {{ loki_image }}
-    container_name: loki
-    restart: {{ grafana_restart_policy }}
-    user: "0:0"
-    ports:
-      - "0.0.0.0:{{ loki_port }}:3100"
-    volumes:
-      - ./loki/loki.yml:/etc/loki/loki.yml:ro
-      - ./loki/data:/data/loki
-    command: -config.file=/etc/loki/loki.yml
-
-  mimir:
-    image: {{ mimir_image }}
-    container_name: mimir
-    restart: {{ grafana_restart_policy }}
-    user: "0:0"
-    ports:
-      - "0.0.0.0:{{ mimir_port }}:9009"
-    volumes:
-      - ./mimir/mimir.yml:/etc/mimir/mimir.yml:ro
-      - ./mimir/data:/data/mimir
-    command: -config.file=/etc/mimir/mimir.yml
-
   grafana:
     image: {{ grafana_image }}
     container_name: grafana
@@ -55,9 +31,6 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro
-    depends_on:
-      - loki
-      - mimir
 
   alloy:
     image: {{ alloy_image }}
@@ -88,9 +61,6 @@ services:
     networks:
       - default
       - homelab-net
-    depends_on:
-      - loki
-      - mimir
 
   docker-exporter:
     image: {{ docker_exporter_image }}

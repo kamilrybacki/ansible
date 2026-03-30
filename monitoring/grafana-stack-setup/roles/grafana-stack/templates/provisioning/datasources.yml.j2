@@ -5,7 +5,7 @@ datasources:
     type: loki
     uid: loki
     access: proxy
-    url: http://loki:{{ loki_port }}
+    url: http://{{ loki_remote_host }}:{{ loki_remote_port }}
     isDefault: false
     editable: false
 
@@ -13,6 +13,6 @@ datasources:
     type: prometheus
     uid: mimir
     access: proxy
-    url: http://mimir:{{ mimir_port }}/prometheus
+    url: http://{{ mimir_remote_host }}:{{ mimir_remote_port }}/prometheus
     isDefault: true
     editable: false

@@ -62,3 +62,9 @@ probe_netbox_url: "http://netbox.kamilandrzejrybacki.dpdns.org"
 probe_outline_url: ""
 probe_vaultwarden_url: ""   # removed from homelab
 probe_seafile_url: ""
+
+# Remote Mimir/Loki endpoints (on lw-nas)
+mimir_remote_host: "10.0.1.2"
+mimir_remote_port: 9009
+loki_remote_host: "10.0.1.2"
+loki_remote_port: 3100

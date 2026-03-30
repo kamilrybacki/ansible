@@ -12,44 +12,8 @@
   loop:
     - "{{ grafana_data_dir }}"
     - "{{ grafana_data_dir }}/grafana"
-    - "{{ grafana_data_dir }}/loki"
-    - "{{ grafana_data_dir }}/loki/data"
-    - "{{ grafana_data_dir }}/mimir"
-    - "{{ grafana_data_dir }}/mimir/data"
     - "{{ grafana_data_dir }}/alloy"
     - "{{ grafana_data_dir }}/provisioning/datasources"
-
-- name: Allow Loki from NAS link (10.0.1.0/24)
-  community.general.ufw:
-    rule: allow
-    port: "{{ loki_port }}"
-    proto: tcp
-    src: 10.0.1.0/24
-    comment: "Loki for Grafana Alloy agents"
-
-- name: Allow Loki from LAN (192.168.0.0/16)
-  community.general.ufw:
-    rule: allow
-    port: "{{ loki_port }}"
-    proto: tcp
-    src: 192.168.0.0/16
-    comment: "Loki for Grafana Alloy agents"
-
-- name: Allow Mimir from NAS link (10.0.1.0/24)
-  community.general.ufw:
-    rule: allow
-    port: "{{ mimir_port }}"
-    proto: tcp
-    src: 10.0.1.0/24
-    comment: "Mimir for Grafana Alloy agents"
-
-- name: Allow Mimir from LAN (192.168.0.0/16)
-  community.general.ufw:
-    rule: allow
-    port: "{{ mimir_port }}"
-    proto: tcp
-    src: 192.168.0.0/16
-    comment: "Mimir for Grafana Alloy agents"
 
 - name: Look up Caddy container IP on homelab-net for blackbox probe routing
   community.docker.docker_container_info:
@@ -68,18 +32,6 @@
     src: docker-compose.yml.j2
     dest: "{{ grafana_data_dir }}/docker-compose.yml"
     mode: "0640"
-
-- name: Template Loki configuration
-  ansible.builtin.template:
-    src: loki.yml.j2
-    dest: "{{ grafana_data_dir }}/loki/loki.yml"
-    mode: "0644"
-
-- name: Template Mimir configuration
-  ansible.builtin.template:
-    src: mimir.yml.j2
-    dest: "{{ grafana_data_dir }}/mimir/mimir.yml"
-    mode: "0644"
 
 - name: Template Alloy configuration
   ansible.builtin.template:
@@ -140,14 +92,8 @@
 
       Components:
         Grafana   → http://{{ inventory_hostname }}:{{ grafana_port }}
-        Loki      → http://{{ inventory_hostname }}:{{ loki_port }}
-        Mimir     → http://{{ inventory_hostname }}:{{ mimir_port }}
         Alloy     → collecting host & container metrics/logs
 
       Admin credentials:
         User:     {{ grafana_admin_user }}
         Password: (as provided during setup)
-
-      Remote agents can push to:
-        Loki:  http://{{ inventory_hostname }}:{{ loki_port }}/loki/api/v1/push
-        Mimir: http://{{ inventory_hostname }}:{{ mimir_port }}/api/v1/push

@@ -284,12 +284,12 @@ prometheus.relabel "blackbox_labels" {
 // ── Remote write endpoints ────────────────────────────────────────────────────
 prometheus.remote_write "mimir" {
   endpoint {
-    url = "http://mimir:{{ mimir_port }}/api/v1/push"
+    url = "http://{{ mimir_remote_host }}:{{ mimir_remote_port }}/api/v1/push"
   }
 }
 
 loki.write "loki" {
   endpoint {
-    url = "http://loki:{{ loki_port }}/loki/api/v1/push"
+    url = "http://{{ loki_remote_host }}:{{ loki_remote_port }}/loki/api/v1/push"
   }
 }
