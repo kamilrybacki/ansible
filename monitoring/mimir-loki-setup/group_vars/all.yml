@@ -7,10 +7,10 @@ loki_port: 3100
 
 restart_policy: unless-stopped
 
-# Storage on mergerfs pool with SnapRAID protection
+# Storage on NAS main volume (/mnt/storage)
 data_dir: /opt/mimir-loki
-mimir_storage_dir: /mnt/pool/monitoring/mimir
-loki_storage_dir: /mnt/pool/monitoring/loki
+mimir_storage_dir: /mnt/storage/monitoring/mimir
+loki_storage_dir: /mnt/storage/monitoring/loki
 
 # Bind address for exposed ports (NAS direct-link IP)
 nas_bind_ip: "10.0.1.2"
