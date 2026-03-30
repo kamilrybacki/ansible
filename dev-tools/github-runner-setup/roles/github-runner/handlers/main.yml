@@ -1,6 +1,0 @@
----
-- name: restart runner-net-iptables
-  ansible.builtin.systemd:
-    name: runner-net-iptables
-    state: restarted
-    daemon_reload: true
