@@ -9,3 +9,4 @@ host_vars/*/vault.yml
 .env
 *.env.local
 .grepai/
+.superpowers/
