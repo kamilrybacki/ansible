@@ -4,3 +4,5 @@ alloy_config_path: /etc/alloy/config.alloy
 mimir_port: 9009
 loki_port: 3100
 alloy_scrape_interval: "60s"
+n8n_metrics_enabled: true
+n8n_metrics_port: 5678
