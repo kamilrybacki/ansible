@@ -77,12 +77,22 @@
       default: "kamil"
       private: false
 
+    - name: netbox_url
+      prompt: "[3/6] NetBox URL (e.g. http://host:8081)"
+      default: ""
+      private: false
+
     - name: netbox_token
-      prompt: "[3/4] NetBox API token (leave empty if loaded from Vault)"
+      prompt: "[4/6] NetBox API token (leave empty if loaded from Vault)"
       private: true
 
+    - name: grafana_url
+      prompt: "[5/6] Grafana URL (e.g. http://host:3000)"
+      default: ""
+      private: false
+
     - name: grafana_token
-      prompt: "[4/4] Grafana service account token (leave empty if loaded from Vault)"
+      prompt: "[6/6] Grafana service account token (leave empty if loaded from Vault)"
       private: true
 
   tasks:
@@ -93,11 +103,11 @@
         ansible_user: "{{ target_ssh_user }}"
         ansible_connection: "{{ 'local' if target_host_ip in ['localhost', '127.0.0.1', '::1'] else 'ssh' }}"
         ansible_python_interpreter: /usr/bin/python3
-        infravision_netbox_url: "http://192.168.0.105:8081"
+        infravision_netbox_url: "{{ netbox_url }}"
         infravision_netbox_token: >-
           {{ netbox_token | default('') or _netbox_secrets.api_token | default('') }}
-        infravision_domain: "{{ saved_domain | default('kamilandrzejrybacki.dpdns.org') }}"
-        infravision_grafana_url: "http://192.168.0.105:{{ grafana_port | default(3000) }}"
+        infravision_domain: "{{ saved_domain | default('') }}"
+        infravision_grafana_url: "{{ grafana_url }}"
         infravision_grafana_token: >-
           {{ grafana_token | default('') or _grafana_secrets.service_account_token | default('') }}
 
