@@ -89,26 +89,5 @@
   retries: 3
   delay: 2
 
-- name: Create daily rebuild cron
-  ansible.builtin.cron:
-    name: "infravision-rebuild"
-    minute: "{{ infravision_rebuild_minute }}"
-    hour: "{{ infravision_rebuild_hour }}"
-    job: >-
-      cd {{ infravision_data_dir }} &&
-      source .env &&
-      export NETBOX_URL NETBOX_TOKEN INFRA_DOMAIN ANSIBLE_PATH GRAFANA_URL GRAFANA_TOKEN &&
-      bash scripts/rebuild.sh >> /var/log/infravision-rebuild.log 2>&1
-    user: "{{ ansible_user }}"
-
-- name: Create logrotate config
-  ansible.builtin.copy:
-    dest: /etc/logrotate.d/infravision
-    content: |
-      /var/log/infravision-rebuild.log {
-        weekly
-        rotate 4
-        compress
-        missingok
-        notifempty
-      }
+  # Daily rebuild is handled by n8n workflow (infravision-rebuild)
+  # which SSHs to this host and runs scripts/rebuild.sh
