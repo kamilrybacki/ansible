@@ -15,21 +15,28 @@
     - "{{ infravision_data_dir }}"
     - "{{ infravision_data_dir }}/dist-out"
 
-- name: Clone InfraVision repo
-  ansible.builtin.git:
-    repo: "{{ infravision_repo }}"
-    dest: "{{ infravision_data_dir }}"
-    version: main
-    force: false
+- name: Clone or update InfraVision repo
+  ansible.builtin.shell: |
+    if [ -d "{{ infravision_data_dir }}/.git" ]; then
+      cd "{{ infravision_data_dir }}" && git pull --ff-only
+    else
+      git clone "{{ infravision_repo }}" "{{ infravision_data_dir }}"
+    fi
   become_user: "{{ ansible_user }}"
+  register: _git_result
+  changed_when: "'Already up to date' not in _git_result.stdout"
 
-- name: Clone Ansible repo (for data pipeline)
-  ansible.builtin.git:
-    repo: "{{ infravision_ansible_repo }}"
-    dest: "/home/{{ ansible_user }}/Code/ansible"
-    version: main
-    force: false
+- name: Clone or update Ansible repo (for data pipeline)
+  ansible.builtin.shell: |
+    if [ -d "/home/{{ ansible_user }}/Code/ansible/.git" ]; then
+      cd "/home/{{ ansible_user }}/Code/ansible" && git pull --ff-only
+    else
+      mkdir -p "/home/{{ ansible_user }}/Code"
+      git clone "{{ infravision_ansible_repo }}" "/home/{{ ansible_user }}/Code/ansible"
+    fi
   become_user: "{{ ansible_user }}"
+  register: _ansible_git_result
+  changed_when: "'Already up to date' not in _ansible_git_result.stdout"
 
 - name: Write pipeline .env
   ansible.builtin.template:
