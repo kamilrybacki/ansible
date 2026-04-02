@@ -158,6 +158,8 @@
         body:
           policy: |
             path "secret/data/homelab/n8n" { capabilities = ["read"] }
+            path "secret/data/homelab/*" { capabilities = ["read"] }
+            path "secret/metadata/homelab/" { capabilities = ["list"] }
             path "secret/metadata/homelab/n8n" { capabilities = ["read", "list"] }
         status_code: [200, 204]
       no_log: true

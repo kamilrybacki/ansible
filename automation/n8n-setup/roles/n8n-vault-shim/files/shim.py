@@ -5,6 +5,11 @@ Reads secrets from HashiCorp Vault KV and injects them as N8N_VAR_* environment
 variables into the n8n container.  When Vault secrets change, it gracefully
 recreates the n8n container with the updated env vars.
 
+Auto-discovers all service paths under VAULT_KV_BASE (e.g. homelab/) and injects
+their secrets with a service prefix.  For example, secrets at homelab/distillery
+are injected as N8N_VAR_distillery_<key>.  The primary n8n path (VAULT_KV_PATH)
+is injected without a prefix for backward compatibility.
+
 Workflows reference secrets via ={{ $env.N8N_VAR_KEY_NAME }} in Set nodes
 (community edition — $vars.* requires an enterprise license).
 
@@ -14,6 +19,7 @@ Environment variables:
   VAULT_ADDR       Vault base URL, e.g. http://10.0.0.1:8200   (required)
   VAULT_TOKEN      Read-only Vault token for the KV path         (required)
   VAULT_KV_PATH    KV path under the secret mount                (default: homelab/n8n)
+  VAULT_KV_BASE    Parent path to scan for service secrets        (default: homelab/)
   N8N_CONTAINER    n8n container name                            (default: n8n)
   SYNC_INTERVAL    Seconds between Vault polls                   (default: 300)
   EXCLUDED_KEYS    Comma-separated Vault keys NOT to inject       (default: see below)
@@ -34,6 +40,7 @@ import urllib.request
 VAULT_ADDR = os.environ["VAULT_ADDR"].rstrip("/")
 VAULT_TOKEN = os.environ["VAULT_TOKEN"]
 VAULT_KV_PATH = os.environ.get("VAULT_KV_PATH", "homelab/n8n")
+VAULT_KV_BASE = os.environ.get("VAULT_KV_BASE", "homelab/").rstrip("/") + "/"
 N8N_CONTAINER = os.environ.get("N8N_CONTAINER", "n8n")
 SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "300"))
 EXCLUDED_KEYS = frozenset(
@@ -101,16 +108,70 @@ class DockerAPI:
 # ---------------------------------------------------------------------------
 
 
-def vault_read_secrets() -> dict:
+def _vault_read_path(kv_path: str) -> dict:
+    """Read a single KV v2 secret path and return its data dict."""
     req = urllib.request.Request(
-        f"{VAULT_ADDR}/v1/secret/data/{VAULT_KV_PATH}",
+        f"{VAULT_ADDR}/v1/secret/data/{kv_path}",
         headers={"X-Vault-Token": VAULT_TOKEN},
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return json.load(r)["data"]["data"]
     except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"Vault read failed HTTP {exc.code}: {exc.read().decode()}") from exc
+        raise RuntimeError(f"Vault read {kv_path} failed HTTP {exc.code}: {exc.read().decode()}") from exc
+
+
+def _vault_list_services() -> list[str]:
+    """LIST all subpaths under VAULT_KV_BASE via the KV v2 metadata API."""
+    req = urllib.request.Request(
+        f"{VAULT_ADDR}/v1/secret/metadata/{VAULT_KV_BASE}",
+        headers={"X-Vault-Token": VAULT_TOKEN},
+        method="LIST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            keys = json.load(r)["data"]["keys"]
+        # keys look like ["n8n", "distillery", "openclaw", "subfolder/"]
+        # only take non-folder entries (no trailing slash)
+        return [k for k in keys if not k.endswith("/")]
+    except urllib.error.HTTPError as exc:
+        print(f"[sync] Warning: Vault LIST {VAULT_KV_BASE} failed HTTP {exc.code}, "
+              f"falling back to primary path only", flush=True)
+        return []
+
+
+def vault_read_secrets() -> dict:
+    """Read the primary n8n path (unprefixed) and auto-discovered service paths (prefixed).
+
+    Primary path (VAULT_KV_PATH, e.g. homelab/n8n):
+        key "telegram_bot_token" → "telegram_bot_token"
+
+    Service path (e.g. homelab/distillery):
+        key "api_key" → "distillery_api_key"
+    """
+    # Primary n8n secrets — no prefix
+    merged = _vault_read_path(VAULT_KV_PATH)
+
+    # Derive the primary path's leaf name so we can skip it during discovery
+    primary_leaf = VAULT_KV_PATH.rsplit("/", 1)[-1]  # e.g. "n8n"
+
+    # Auto-discover sibling service paths
+    services = _vault_list_services()
+    for service in services:
+        if service == primary_leaf:
+            continue  # already read as primary
+        service_path = f"{VAULT_KV_BASE}{service}"
+        try:
+            service_secrets = _vault_read_path(service_path)
+            for key, value in service_secrets.items():
+                prefixed_key = f"{service}_{key}"
+                if prefixed_key not in merged:  # primary path wins on conflict
+                    merged[prefixed_key] = value
+            print(f"[sync] Discovered {service}: {len(service_secrets)} keys", flush=True)
+        except Exception as exc:
+            print(f"[sync] Warning: failed to read {service_path}: {exc}", flush=True)
+
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +353,7 @@ def sync(docker: DockerAPI) -> None:
 if __name__ == "__main__":
     print(
         f"[sync] Starting | Vault={VAULT_ADDR} | path={VAULT_KV_PATH} | "
-        f"container={N8N_CONTAINER} | interval={SYNC_INTERVAL}s",
+        f"base={VAULT_KV_BASE} | container={N8N_CONTAINER} | interval={SYNC_INTERVAL}s",
         flush=True,
     )
     docker = DockerAPI()
