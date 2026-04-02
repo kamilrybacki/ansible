@@ -30,6 +30,7 @@
     env: "{{ _n8n_env | combine(_n8n_public_url_env) | combine(_n8n_queue_env) | combine(_n8n_db_env) | combine(_n8n_metrics_env) }}"
     comparisons:
       env: ignore   # vault-n8n-sync daemon owns N8N_VAR_* — Ansible must not fight it
+  register: _n8n_container_result
   vars:
     _n8n_env:
       N8N_HOST: "{{ n8n_hostname }}"

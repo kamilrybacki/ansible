@@ -8,6 +8,10 @@
 #
 # Secrets are sourced from Vault via the vault-shim's n8n variables, which
 # are then passed as env vars to this container.
+#
+# IMPORTANT: The proxy shares the n8n container's network namespace. If the
+# n8n container is recreated (new container ID), the proxy MUST be recreated
+# too, otherwise its network reference points to a dead container.
 # =============================================================================
 
 - name: Pull secret proxy image
@@ -24,4 +28,5 @@
     restart_policy: "{{ n8n_restart_policy }}"
     network_mode: "container:{{ n8n_container_name }}"
     env: "{{ n8n_secret_proxy_env }}"
+    recreate: "{{ _n8n_container_result is changed }}"
   no_log: true
