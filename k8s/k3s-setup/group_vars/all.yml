@@ -46,15 +46,6 @@ k8s_secrets:
       DEEPSEEK_API_KEY: deepseek_api_key
       PORTKEY_API_KEY: portkey_api_key
 
-  - namespace: openclaw
-    name: openclaw-secrets
-    vault_path: openclaw
-    data:
-      portkey_gateway_key: portkey_gateway_key
-      openclaw_gw_token: gateway_token
-      openclaw_telegram_bot_token: telegram_bot_token
-      n8n_mcp_token: n8n_mcp_token
-
   - namespace: mcp-bridges
     name: mcp-bridges-secrets
     vault_path: mcp-bridges
@@ -64,6 +55,14 @@ k8s_secrets:
       vault_token: vault_token
       n8n_mcp_token: n8n_mcp_token
       grafana_sa_token: grafana_sa_token
+
+  - namespace: hermes
+    name: hermes-secrets
+    vault_path: hermes
+    data:
+      portkey_gateway_key: portkey_gateway_key
+      telegram_bot_token: telegram_bot_token
+      n8n_mcp_token: n8n_mcp_token
 
   # distillery-secrets is managed by k8s/distillery-setup/setup.yml
   # (Vault stores all env vars; the playbook assembles the full secret including
@@ -124,6 +123,11 @@ argocd_applications:
   - name: mcp-bridges
     chart_path: charts/mcp-bridges
     namespace: mcp-bridges
+    values: {}
+
+  - name: hermes
+    chart_path: charts/hermes
+    namespace: hermes
     values: {}
 
   # k8s-monitoring is deployed directly from the Grafana Helm chart repo
