@@ -51,6 +51,9 @@ k8s_secrets:
     vault_path: openclaw
     data:
       portkey_gateway_key: portkey_gateway_key
+      openclaw_gw_token: gateway_token
+      openclaw_telegram_bot_token: telegram_bot_token
+      n8n_mcp_token: n8n_mcp_token
 
   - namespace: mcp-bridges
     name: mcp-bridges-secrets
