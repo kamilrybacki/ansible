@@ -60,9 +60,12 @@ k8s_secrets:
     name: hermes-secrets
     vault_path: hermes
     data:
+      groq_api_key: groq_api_key
       portkey_gateway_key: portkey_gateway_key
       telegram_bot_token: telegram_bot_token
       n8n_mcp_token: n8n_mcp_token
+      openai_access_token: openai_access_token
+      openai_refresh_token: openai_refresh_token
 
   # distillery-secrets is managed by k8s/distillery-setup/setup.yml
   # (Vault stores all env vars; the playbook assembles the full secret including
