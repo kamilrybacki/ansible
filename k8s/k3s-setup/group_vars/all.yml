@@ -66,7 +66,6 @@ k8s_secrets:
       n8n_mcp_token: n8n_mcp_token
       openai_access_token: openai_access_token
       openai_refresh_token: openai_refresh_token
-      hermes_auth_json: hermes_auth_json
 
   # distillery-secrets is managed by k8s/distillery-setup/setup.yml
   # (Vault stores all env vars; the playbook assembles the full secret including
