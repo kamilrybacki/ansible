@@ -133,15 +133,15 @@
 	reverse_proxy {{ pihole_container_name }}:{{ pihole_internal_port }}
 }
 
-# OpenClaw AI gateway
-{{ _scheme }}{{ subdomain_openclaw }}.{{ domain }} {
+# Hermes WebUI
+{{ _scheme }}{{ subdomain_hermes }}.{{ domain }} {
 	import rate_limit
 	import proxy_headers
 {% if cloudflare_api_token | default('') and not cf_tunnel_name | default('') %}
 	import cf_tls
 {% endif %}
 	import authelia
-	reverse_proxy openclaw:{{ openclaw_proxy_port | default(18790) }}
+	reverse_proxy {{ hermes_webui_host | default('192.168.0.107') }}:{{ hermes_webui_port | default(30788) }}
 }
 
 # Grafana (monitoring stack on lw-main)
