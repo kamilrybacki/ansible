@@ -52,17 +52,21 @@ def _poll_sessions(rc: redis.Redis):
                     messages = session_data["session"].get("messages", [])
                     new_msgs = messages[prev:]
 
-                    for msg in new_msgs:
+                    for i, msg in enumerate(new_msgs):
                         event = {
                             "type": "new_message",
                             "session_id": sid,
                             "role": msg.get("role", ""),
                             "content": str(msg.get("content", ""))[:4000],
                             "source": "webui",
+                            "seq": prev + i,
                             "ts": time.time(),
                         }
                         rc.publish(CHANNEL, json.dumps(event))
-                        log.info("Published %s message in session %s", msg.get("role"), sid[:8])
+                        log.info("Published %s message in session %s (seq %d)", msg.get("role"), sid[:8], prev + i)
+                        # Small delay between messages to preserve ordering in Telegram
+                        if i < len(new_msgs) - 1:
+                            time.sleep(0.3)
 
                 _session_counts[sid] = count
 
