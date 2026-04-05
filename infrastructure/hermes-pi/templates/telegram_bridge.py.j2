@@ -1,19 +1,21 @@
-"""Telegram ↔ Hermes WebUI bidirectional bridge with approval handling.
+"""Telegram ↔ Hermes WebUI bridge with Redis pub/sub.
 
-- Telegram messages → webui /api/chat/start → response back to Telegram
-- WebUI messages → polled from session API → mirrored to Telegram
-- Approval requests → forwarded to Telegram as inline buttons
+- Telegram messages → webui API → response back to Telegram
+- Subscribes to Redis for webui-originated messages → mirrors to Telegram
+- Publishes Telegram-originated messages to Redis (so broker skips them)
+- Handles approval requests via inline buttons
 """
 
 import asyncio
 import json
 import logging
 import os
+import threading
 import urllib.request
-import urllib.error
 from pathlib import Path
 
 import httpx
+import redis
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
@@ -27,18 +29,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message
 log = logging.getLogger("tg-bridge")
 
 WEBUI_URL = os.environ.get("WEBUI_URL", "http://hermes-webui:8788")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 ALLOWED_USERS = {
     int(u) for u in os.environ.get("TELEGRAM_ALLOWED_USERS", "").split(",") if u.strip()
 }
 MODEL = os.environ.get("HERMES_MODEL", "gpt-5.3-codex")
-POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "3"))
+CHANNEL = "hermes:messages"
+CHANNEL_TG = "hermes:telegram"  # bridge publishes here so broker knows to skip
 
-# State
 _sessions: dict[int, dict] = {}
 _sessions_file = Path("/opt/data/telegram_sessions.json")
-# Message indices sent BY the bridge (to avoid mirroring back)
-_bridge_msg_indices: dict[str, set] = {}  # session_id → set of message indices
+_rc: redis.Redis = None
 
 
 def _load_sessions():
@@ -55,11 +57,6 @@ def _save_sessions():
         json.dump({str(k): v for k, v in _sessions.items()}, f)
 
 
-def _webui_get(path: str) -> dict:
-    r = urllib.request.urlopen(f"{WEBUI_URL}{path}", timeout=30)
-    return json.loads(r.read().decode())
-
-
 def _webui_post(path: str, body: dict) -> dict:
     data = json.dumps(body).encode()
     req = urllib.request.Request(
@@ -69,12 +66,17 @@ def _webui_post(path: str, body: dict) -> dict:
     return json.loads(r.read().decode())
 
 
-async def _async_get(path: str) -> dict:
-    return await asyncio.get_event_loop().run_in_executor(None, _webui_get, path)
+def _webui_get(path: str) -> dict:
+    r = urllib.request.urlopen(f"{WEBUI_URL}{path}", timeout=30)
+    return json.loads(r.read().decode())
 
 
-async def _async_post(path: str, body: dict) -> dict:
+async def _async_post(path, body):
     return await asyncio.get_event_loop().run_in_executor(None, _webui_post, path, body)
+
+
+async def _async_get(path):
+    return await asyncio.get_event_loop().run_in_executor(None, _webui_get, path)
 
 
 async def _get_or_create_session(user_id: int, chat_id: int) -> str:
@@ -84,9 +86,7 @@ async def _get_or_create_session(user_id: int, chat_id: int) -> str:
 
     resp = await _async_post("/api/session/new", {})
     sid = resp["session"]["session_id"]
-    msg_count = len(resp["session"].get("messages", []))
-
-    _sessions[user_id] = {"session_id": sid, "chat_id": chat_id, "msg_count": msg_count}
+    _sessions[user_id] = {"session_id": sid, "chat_id": chat_id}
     _save_sessions()
     log.info("Created session %s for user %d", sid, user_id)
     return sid
@@ -95,12 +95,10 @@ async def _get_or_create_session(user_id: int, chat_id: int) -> str:
 def _read_sse_sync(stream_id: str) -> str:
     url = f"{WEBUI_URL}/api/chat/stream?stream_id={stream_id}"
     req = urllib.request.Request(url)
-    tokens = []
-    tool_calls = []
+    tokens, tool_calls = [], []
 
     with urllib.request.urlopen(req, timeout=300) as resp:
-        event_type = ""
-        data_str = ""
+        event_type, data_str = "", ""
         for raw_line in resp:
             line = raw_line.decode("utf-8", errors="replace").rstrip("\n\r")
             if line.startswith("event:"):
@@ -133,19 +131,19 @@ def _read_sse_sync(stream_id: str) -> str:
 
 
 async def _send_and_stream(session_id: str, message: str) -> str:
+    # Notify broker this message is from Telegram (so it doesn't mirror back)
+    _rc.publish(CHANNEL_TG, json.dumps({"session_id": session_id, "ts": __import__("time").time()}))
+
     resp = await _async_post(
         "/api/chat/start",
         {"session_id": session_id, "message": message, "model": MODEL, "workspace": "/opt/data"},
     )
     stream_id = resp["stream_id"]
-    result = await asyncio.get_event_loop().run_in_executor(None, _read_sse_sync, stream_id)
-    return result
+    return await asyncio.get_event_loop().run_in_executor(None, _read_sse_sync, stream_id)
 
 
 def _truncate(text: str, max_len: int = 4096) -> str:
-    if len(text) <= max_len:
-        return text
-    return text[: max_len - 20] + "\n\n… (truncated)"
+    return text if len(text) <= max_len else text[:max_len - 20] + "\n\n… (truncated)"
 
 
 # ── Telegram handlers ─────────────────────────────────────────────────
@@ -154,9 +152,9 @@ async def cmd_start(update: Update, _):
     if ALLOWED_USERS and update.effective_user.id not in ALLOWED_USERS:
         return
     await update.message.reply_text(
-        "👋 Connected to Truteń via WebUI bridge.\n"
-        "Messages sync between Telegram and web UI.\n"
-        "Use /new to start a fresh session."
+        "👋 Connected to Truteń.\n"
+        "Messages sync between Telegram and web UI in real-time.\n"
+        "/new — fresh session"
     )
 
 
@@ -164,9 +162,6 @@ async def cmd_new(update: Update, _):
     if ALLOWED_USERS and update.effective_user.id not in ALLOWED_USERS:
         return
     uid = update.effective_user.id
-    old_sid = _sessions.get(uid, {}).get("session_id")
-    if old_sid:
-        _bridge_msg_indices.pop(old_sid, None)
     _sessions.pop(uid, None)
     _save_sessions()
     sid = await _get_or_create_session(uid, update.effective_chat.id)
@@ -182,36 +177,18 @@ async def handle_message(update: Update, _):
         return
 
     sid = await _get_or_create_session(uid, update.effective_chat.id)
-
-    # Mark the indices we're about to create so the poller skips them
-    session_data = await _async_get(f"/api/session?session_id={sid}")
-    current_count = len(session_data["session"].get("messages", []))
-    # The next two messages will be: user message (current_count) + assistant response (current_count+1)
-    if sid not in _bridge_msg_indices:
-        _bridge_msg_indices[sid] = set()
-    _bridge_msg_indices[sid].add(current_count)      # user msg
-    _bridge_msg_indices[sid].add(current_count + 1)   # assistant response
-
     thinking = await update.message.reply_text("⏳ Thinking…")
 
     try:
         response = await _send_and_stream(sid, text)
-        # Update msg_count
-        session_data = await _async_get(f"/api/session?session_id={sid}")
-        _sessions[uid]["msg_count"] = len(session_data["session"].get("messages", []))
-        _save_sessions()
         await thinking.edit_text(_truncate(response))
     except Exception as e:
         log.exception("Error processing message")
         if "not found" in str(e).lower() or "404" in str(e):
             _sessions.pop(uid, None)
-            _bridge_msg_indices.pop(sid, None)
             sid = await _get_or_create_session(uid, update.effective_chat.id)
             try:
                 response = await _send_and_stream(sid, text)
-                session_data = await _async_get(f"/api/session?session_id={sid}")
-                _sessions[uid]["msg_count"] = len(session_data["session"].get("messages", []))
-                _save_sessions()
                 await thinking.edit_text(_truncate(response))
             except Exception as e2:
                 await thinking.edit_text(f"⚠️ Error: {e2}")
@@ -220,77 +197,112 @@ async def handle_message(update: Update, _):
 
 
 async def handle_approval_callback(update: Update, _):
-    """Handle inline button presses for approval requests."""
     query = update.callback_query
     await query.answer()
-    # callback_data format: "approve:session_id:choice"
     parts = query.data.split(":", 2)
     if len(parts) != 3 or parts[0] != "approve":
         return
     _, sid, choice = parts
     try:
         await _async_post("/api/approval/respond", {"session_id": sid, "choice": choice})
-        label = {"once": "✅ Approved (once)", "session": "✅ Approved (session)",
-                 "always": "✅ Approved (always)", "deny": "❌ Denied"}
+        label = {"once": "✅ Once", "session": "✅ Session", "always": "✅ Always", "deny": "❌ Denied"}
         await query.edit_message_text(f"{query.message.text}\n\n{label.get(choice, choice)}")
     except Exception as e:
-        await query.edit_message_text(f"{query.message.text}\n\n⚠️ Error: {e}")
+        await query.edit_message_text(f"{query.message.text}\n\n⚠️ {e}")
 
 
-# ── Background poller: WebUI → Telegram mirroring + approvals ─────────
+# ── Redis subscriber: webui → Telegram ────────────────────────────────
 
-async def _poll_webui_sessions(app):
+async def _redis_listener(app):
+    """Subscribe to Redis for webui-originated messages and mirror to Telegram."""
+    bot = app.bot
+
+    # Track recently-sent Telegram messages to avoid mirroring back
+    tg_sessions_recent: set = set()
+
+    def _sub_telegram():
+        """Listen for telegram-originated notifications."""
+        ps = _rc.pubsub()
+        ps.subscribe(CHANNEL_TG)
+        for msg in ps.listen():
+            if msg["type"] != "message":
+                continue
+            try:
+                data = json.loads(msg["data"])
+                sid = data.get("session_id", "")
+                if sid:
+                    tg_sessions_recent.add(sid)
+                    # Clear after 60s
+                    threading.Timer(60, lambda s=sid: tg_sessions_recent.discard(s)).start()
+            except Exception:
+                pass
+
+    threading.Thread(target=_sub_telegram, daemon=True).start()
+
+    def _sub_messages():
+        """Listen for new webui messages."""
+        ps = _rc.pubsub()
+        ps.subscribe(CHANNEL)
+        for msg in ps.listen():
+            if msg["type"] != "message":
+                continue
+            try:
+                event = json.loads(msg["data"])
+                if event.get("source") != "webui":
+                    continue
+                sid = event.get("session_id", "")
+
+                # Skip if this session just had a Telegram message (avoid echo)
+                if sid in tg_sessions_recent:
+                    continue
+
+                # Find the Telegram chat for this session
+                chat_id = None
+                for uid, info in _sessions.items():
+                    if info.get("session_id") == sid:
+                        chat_id = info.get("chat_id")
+                        break
+                if not chat_id:
+                    continue
+
+                role = event.get("role", "")
+                content = event.get("content", "").strip()
+                if not content:
+                    continue
+
+                if role == "user":
+                    text = f"🌐 You (web):\n{content}"
+                elif role == "assistant":
+                    text = f"🤖 Truteń (web):\n{content}"
+                else:
+                    continue
+
+                asyncio.run_coroutine_threadsafe(
+                    bot.send_message(chat_id=chat_id, text=_truncate(text)),
+                    asyncio.get_event_loop(),
+                )
+            except Exception as e:
+                log.debug("Redis listener error: %s", e)
+
+    await asyncio.get_event_loop().run_in_executor(None, _sub_messages)
+
+
+# ── Approval poller (still needed — no Redis event for approvals) ─────
+
+async def _poll_approvals(app):
     bot = app.bot
     while True:
-        await asyncio.sleep(POLL_INTERVAL)
+        await asyncio.sleep(3)
         for uid, info in list(_sessions.items()):
             sid = info.get("session_id")
             chat_id = info.get("chat_id")
-            last_count = info.get("msg_count", 0)
             if not sid or not chat_id:
                 continue
             try:
-                # Check for new messages
-                data = await _async_get(f"/api/session?session_id={sid}")
-                messages = data["session"].get("messages", [])
-                current_count = len(messages)
-
-                if current_count > last_count:
-                    new_msgs = messages[last_count:]
-                    bridge_indices = _bridge_msg_indices.get(sid, set())
-
-                    for i, msg in enumerate(new_msgs):
-                        msg_idx = last_count + i
-                        # Skip messages that were sent by the bridge
-                        if msg_idx in bridge_indices:
-                            bridge_indices.discard(msg_idx)
-                            continue
-
-                        role = msg.get("role", "")
-                        content = str(msg.get("content", "")).strip()
-                        if not content:
-                            continue
-
-                        if role == "user":
-                            text = f"🌐 You (web):\n{content}"
-                        elif role == "assistant":
-                            text = f"🤖 Truteń (web):\n{content}"
-                        else:
-                            continue
-
-                        try:
-                            await bot.send_message(chat_id=chat_id, text=_truncate(text))
-                        except Exception as send_err:
-                            log.warning("Mirror failed: %s", send_err)
-
-                    _sessions[uid]["msg_count"] = current_count
-                    _save_sessions()
-
-                # Check for pending approvals
-                approval_data = await _async_get(f"/api/approval/pending?session_id={sid}")
-                pending = approval_data.get("pending")
+                data = await _async_get(f"/api/approval/pending?session_id={sid}")
+                pending = data.get("pending")
                 if pending:
-                    cmd = pending.get("command", pending.get("description", "unknown action"))
+                    cmd = pending.get("command", pending.get("description", "unknown"))
                     text = f"🔐 Approval required:\n\n`{cmd}`"
                     keyboard = InlineKeyboardMarkup([
                         [
@@ -302,17 +314,18 @@ async def _poll_webui_sessions(app):
                             InlineKeyboardButton("❌ Deny", callback_data=f"approve:{sid}:deny"),
                         ],
                     ])
-                    try:
-                        await bot.send_message(chat_id=chat_id, text=text, reply_markup=keyboard)
-                    except Exception as e:
-                        log.warning("Approval message failed: %s", e)
-
-            except Exception as e:
-                log.debug("Poll error for %s: %s", sid, e)
+                    await bot.send_message(chat_id=chat_id, text=text, reply_markup=keyboard)
+            except Exception:
+                pass
 
 
 def main():
+    global _rc
     _load_sessions()
+    _rc = redis.from_url(REDIS_URL)
+    _rc.ping()
+    log.info("Connected to Redis")
+
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("new", cmd_new))
@@ -320,11 +333,11 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     async def post_init(application):
-        asyncio.create_task(_poll_webui_sessions(application))
+        asyncio.create_task(_redis_listener(application))
+        asyncio.create_task(_poll_approvals(application))
 
     app.post_init = post_init
-
-    log.info("Bridge started (webui=%s, poll=%ds)", WEBUI_URL, POLL_INTERVAL)
+    log.info("Bridge started (webui=%s, redis=%s)", WEBUI_URL, REDIS_URL)
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

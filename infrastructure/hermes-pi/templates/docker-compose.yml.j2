@@ -1,8 +1,20 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: hermes-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    command: redis-server --save 60 1 --maxmemory 32mb --maxmemory-policy allkeys-lru
+    networks:
+      - hermes
+
   webui:
     image: ghcr.io/nesquena/hermes-webui:{{ hermes_webui_tag }}
     container_name: hermes-webui
     restart: unless-stopped
+    depends_on:
+      - redis
     command: >
       sh -c "
         apt-get update -qq && apt-get install -y -qq --no-install-recommends openssh-client nodejs npm git 2>/dev/null;
@@ -11,13 +23,12 @@ services:
         exec python server.py
       "
     ports:
-      - "{{ hermes_webui_port }}:8788"
+      - "8788:8788"
     volumes:
       - ./data:/opt/data
       - ./data/webui-state:/data
       - ./agent-code:/agent-code/hermes:ro
       - ./data/.ssh:/root/.ssh
-      - ./data/.ssh:/root/.ssh:ro
     environment:
       - HERMES_HOME=/opt/data
       - HERMES_CONFIG_PATH=/opt/data/config.yaml
@@ -30,15 +41,40 @@ services:
     networks:
       - hermes
 
+  broker:
+    image: python:3.12-slim
+    container_name: hermes-broker
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - webui
+    command: >
+      sh -c "
+        pip install --no-cache-dir -q redis 2>/dev/null;
+        exec python /app/message_broker.py
+      "
+    ports:
+      - "8789:8789"
+    volumes:
+      - ./message_broker.py:/app/message_broker.py:ro
+    environment:
+      - WEBUI_URL=http://hermes-webui:8788
+      - REDIS_URL=redis://redis:6379/0
+      - SSE_PORT=8789
+      - POLL_INTERVAL=2
+    networks:
+      - hermes
+
   telegram-bridge:
     image: python:3.12-slim
     container_name: hermes-telegram-bridge
     restart: unless-stopped
     depends_on:
+      - redis
       - webui
     command: >
       sh -c "
-        pip install --no-cache-dir -q python-telegram-bot httpx 2>/dev/null;
+        pip install --no-cache-dir -q python-telegram-bot httpx redis 2>/dev/null;
         exec python /app/telegram_bridge.py
       "
     volumes:
@@ -46,6 +82,7 @@ services:
       - ./telegram_bridge.py:/app/telegram_bridge.py:ro
     environment:
       - WEBUI_URL=http://hermes-webui:8788
+      - REDIS_URL=redis://redis:6379/0
       - HERMES_MODEL={{ hermes_model }}
       - TELEGRAM_ALLOWED_USERS={{ telegram_allowed_user_id }}
     env_file:
@@ -63,6 +100,9 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - hermes
+
+volumes:
+  redis-data:
 
 networks:
   hermes:
