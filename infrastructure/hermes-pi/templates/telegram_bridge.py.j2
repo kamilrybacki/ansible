@@ -36,7 +36,6 @@ ALLOWED_USERS = {
 }
 MODEL = os.environ.get("HERMES_MODEL", "gpt-5.3-codex")
 CHANNEL = "hermes:messages"
-CHANNEL_TG = "hermes:telegram"  # bridge publishes here so broker knows to skip
 
 _sessions: dict[int, dict] = {}
 _sessions_file = Path("/opt/data/telegram_sessions.json")
@@ -131,15 +130,20 @@ def _read_sse_sync(stream_id: str) -> str:
 
 
 async def _send_and_stream(session_id: str, message: str) -> str:
-    # Notify broker this message is from Telegram (so it doesn't mirror back)
-    _rc.publish(CHANNEL_TG, json.dumps({"session_id": session_id, "ts": __import__("time").time()}))
+    # Mark the user message hash so the broker skips it
+    content_hash = hash(message[:200])
+    _rc.sadd(f"hermes:bridge_sent:{session_id}", str(content_hash))
+    _rc.expire(f"hermes:bridge_sent:{session_id}", 300)
 
     resp = await _async_post(
         "/api/chat/start",
         {"session_id": session_id, "message": message, "model": MODEL, "workspace": "/opt/data"},
     )
     stream_id = resp["stream_id"]
-    return await asyncio.get_event_loop().run_in_executor(None, _read_sse_sync, stream_id)
+    result = await asyncio.get_event_loop().run_in_executor(None, _read_sse_sync, stream_id)
+    # Mark assistant response hash so broker skips it
+    _rc.sadd(f"hermes:bridge_sent:{session_id}", str(hash(result[:200])))
+    return result
 
 
 def _truncate(text: str, max_len: int = 4096) -> str:
@@ -217,30 +221,8 @@ async def _redis_listener(app):
     """Subscribe to Redis for webui-originated messages and mirror to Telegram."""
     bot = app.bot
 
-    # Track recently-sent Telegram messages to avoid mirroring back
-    tg_sessions_recent: set = set()
-
-    def _sub_telegram():
-        """Listen for telegram-originated notifications."""
-        ps = _rc.pubsub()
-        ps.subscribe(CHANNEL_TG)
-        for msg in ps.listen():
-            if msg["type"] != "message":
-                continue
-            try:
-                data = json.loads(msg["data"])
-                sid = data.get("session_id", "")
-                if sid:
-                    tg_sessions_recent.add(sid)
-                    # Clear after 60s
-                    threading.Timer(60, lambda s=sid: tg_sessions_recent.discard(s)).start()
-            except Exception:
-                pass
-
-    threading.Thread(target=_sub_telegram, daemon=True).start()
-
     def _sub_messages():
-        """Listen for new webui messages."""
+        """Listen for new webui messages and forward to Telegram."""
         ps = _rc.pubsub()
         ps.subscribe(CHANNEL)
         for msg in ps.listen():
@@ -252,8 +234,10 @@ async def _redis_listener(app):
                     continue
                 sid = event.get("session_id", "")
 
-                # Skip if this session just had a Telegram message (avoid echo)
-                if sid in tg_sessions_recent:
+                # Skip messages we sent via the bridge (check Redis set)
+                content_hash = hash(event.get("content", "")[:200])
+                if _rc.sismember(f"hermes:bridge_sent:{sid}", str(content_hash)):
+                    _rc.srem(f"hermes:bridge_sent:{sid}", str(content_hash))
                     continue
 
                 # Find the Telegram chat for this session
@@ -281,6 +265,7 @@ async def _redis_listener(app):
                     bot.send_message(chat_id=chat_id, text=_truncate(text)),
                     asyncio.get_event_loop(),
                 )
+                log.info("Mirrored %s message to Telegram for session %s", role, sid[:8])
             except Exception as e:
                 log.debug("Redis listener error: %s", e)
 
