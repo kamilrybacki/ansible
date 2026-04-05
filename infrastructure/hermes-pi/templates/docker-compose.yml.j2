@@ -8,8 +8,11 @@ services:
     command: ["gateway", "run"]
     volumes:
       - ./data:/opt/data
+      - ./data:/root/.hermes
     env_file:
       - .env
+    environment:
+      - HERMES_HOME=/opt/data
     networks:
       - hermes
 
