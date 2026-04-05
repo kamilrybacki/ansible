@@ -1,0 +1,32 @@
+model:
+  default: "{{ hermes_model }}"
+  provider: "{{ hermes_provider }}"
+
+smart_model_routing:
+  enabled: false
+
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+
+mcp_servers:
+{% for name, server in hermes_mcp_servers.items() %}
+  {{ name }}:
+    url: "{{ server.url }}"
+{% if server.headers is defined %}
+    headers:
+{% for hdr_name, hdr_val in server.headers.items() %}
+      {{ hdr_name }}: "{{ hdr_val }}"
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+platform_toolsets:
+  telegram: [hermes-telegram]
+
+session_reset:
+  mode: both
+  idle_minutes: 1440
+  at_hour: 4

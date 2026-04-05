@@ -1,0 +1,27 @@
+---
+hermes_install_dir: /opt/hermes
+hermes_agent_version: "0.7.0"
+hermes_webui_tag: "latest"
+hermes_model: "gpt-5.3-codex"
+hermes_provider: "openai-codex"
+hermes_webui_port: 8788
+
+telegram_allowed_user_id: "8207765643"
+
+k8s_node_ip: "192.168.0.107"
+
+hermes_mcp_servers:
+  grafana:
+    url: "http://{{ k8s_node_ip }}:30804/mcp"
+  obsidian:
+    url: "http://{{ k8s_node_ip }}:30801/mcp"
+  netbox:
+    url: "http://{{ k8s_node_ip }}:30802/mcp"
+  vault:
+    url: "http://{{ k8s_node_ip }}:30803/mcp"
+  distillery:
+    url: "http://{{ k8s_node_ip }}:30805/mcp"
+  n8n:
+    url: "http://192.168.0.108:5678/mcp-server/http"
+    headers:
+      Authorization: "Bearer {{ n8n_mcp_token }}"
