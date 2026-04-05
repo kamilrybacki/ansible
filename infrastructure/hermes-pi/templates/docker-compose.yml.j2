@@ -14,6 +14,7 @@ services:
     volumes:
       - ./data:/opt/data
       - ./agent-code:/agent-code/hermes:ro
+      - ./data/.ssh:/root/.ssh:ro
     environment:
       - HERMES_HOME=/opt/data
       - HERMES_CONFIG_PATH=/opt/data/config.yaml
